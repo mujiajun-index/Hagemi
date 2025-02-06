@@ -17,8 +17,6 @@ class ChatCompletionRequest(BaseModel):
     presence_penalty: Optional[float] = 0.0
     frequency_penalty: Optional[float] = 0.0
 
-    # 其他需要的参数...
-
 class Choice(BaseModel):
     index: int
     message: Message

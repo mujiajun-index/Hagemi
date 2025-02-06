@@ -14,7 +14,7 @@ import random
 
 # --- 日志配置 ---
 logger = logging.getLogger("gemini_app")
-DEBUG = os.environ.get("DEBUG", "false").lower() == "true"  # DEBUG 默认值为 false
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
 
 formatter = logging.Formatter('[%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s' if not DEBUG
@@ -32,6 +32,7 @@ def translate_error(message: str) -> str:
     if "invalid argument" in message.lower(): return "无效参数"
     if "internal server error" in message.lower(): return "服务器内部错误"
     if "service unavailable" in message.lower(): return "服务不可用"
+    if "blocked" in message.lower(): return "请求被阻止"
     return message
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -40,26 +41,25 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         return
     error_message = translate_error(str(exc_value))
     log_extra = {'key': 'N/A', 'request_type': 'N/A', 'model': 'N/A', 'status_code': 'N/A', 'error_message': '' if not DEBUG else error_message }
-    # 始终不包含 exc_info，除非是 DEBUG 模式
     logger.error("未捕获的异常: %s" % error_message, exc_info=None if not DEBUG else (exc_type, exc_value, exc_traceback), extra=log_extra)
 sys.excepthook = handle_exception
 
 app = FastAPI()
 
 # --- 环境变量 ---
-API_KEYS = os.environ.get("GEMINI_API_KEYS", "").split(",")  # 修改环境变量名称
+API_KEYS = os.environ.get("GEMINI_API_KEYS", "111,AIzaSyCnmiWgVV5El2JAcWbny7HeSaWJg8PrsRk").split(",")
 if not API_KEYS:
     raise ValueError("请设置 GEMINI_API_KEYS 环境变量")
-PASSWORD = os.environ.get("PASSWORD", "123")  # PASSWORD 默认值为 "123"
-MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))  # 默认每分钟30次
-MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))  # 默认每天每个IP 600次
+PASSWORD = os.environ.get("PASSWORD", "123")
+MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
+MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
 
+# 全局 API 密钥栈
+api_key_stack_global = []
 
-async def get_api_key_stack():
-    """获取一个随机排序的 API 密钥栈"""
-    keys = API_KEYS.copy()
-    random.shuffle(keys)
-    return keys
+def get_api_key_stack():
+    """获取 API 密钥"""
+    return api_key_stack_global
 
 async def check_keys():
     available_keys = []
@@ -67,21 +67,32 @@ async def check_keys():
         is_valid = await test_api_key(key)
         status_msg = "有效" if is_valid else "无效"
         logger.info(f"API Key {key[:10]}... {status_msg}.", extra={'key': key[:10], 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
-        if is_valid: available_keys.append(key)
-    if not available_keys:
-        logger.error("没有可用的 API 密钥！", extra={'key': 'N/A', 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
-    return available_keys
+        if is_valid:
+            available_keys.append(key)
+    return available_keys  # 只返回有效密钥列表, 不在这里报错
 
 @app.on_event("startup")
 async def startup_event():
-    global API_KEYS  
+    global API_KEYS
+    global api_key_stack_global
     logger.info("Starting Gemini API proxy...", extra={'key': 'N/A', 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
-    all_models = GeminiClient.list_available_models(API_KEYS[0])
-    GeminiClient.AVAILABLE_MODELS = [model.replace("models/", "") for model in all_models]
-    logger.info(f"Available models loaded.", extra={'key': 'N/A', 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
+
+    # 先检查密钥有效性
     available_keys = await check_keys()
-    if available_keys:
-        API_KEYS = available_keys
+    if not available_keys:
+        logger.error("没有可用的 API 密钥！", extra={'key': 'N/A', 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
+        raise ValueError("没有可用的 API 密钥！") # 没有可用密钥，直接抛出异常
+
+    # 使用第一个有效的 API 密钥拉取模型列表
+    first_valid_key = available_keys[0]
+    all_models = GeminiClient.list_available_models(first_valid_key)
+    GeminiClient.AVAILABLE_MODELS = [model[7:] for model in all_models]
+    logger.info(f"Available models loaded using key: {first_valid_key[:10]}...", extra={'key': first_valid_key[:10], 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
+
+    # 更新 API_KEYS 和 api_key_stack_global
+    API_KEYS = available_keys  # 只保留有效的 API 密钥
+    api_key_stack_global = API_KEYS.copy()
+    random.shuffle(api_key_stack_global)
     logger.info(f"可用 API 密钥数量：{len(API_KEYS)}", extra={'key': 'N/A', 'request_type': 'startup', 'model': 'N/A', 'status_code': 'N/A', 'error_message': ''})
 
 @app.get("/v1/models", response_model=ModelList)
@@ -89,7 +100,6 @@ def list_models():
     logger.info("Received request to list models", extra={'key': 'N/A', 'request_type': 'list_models', 'model': 'N/A', 'status_code': 200, 'error_message': ''})
     return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
 
-# 新增密码验证依赖项
 async def verify_password(request: Request):
     if PASSWORD:
         auth_header = request.headers.get("Authorization")
@@ -127,9 +137,6 @@ async def process_request(chat_request: ChatCompletionRequest, http_request:Requ
                 log_message = f"API Key failed: {error_detail}"
                 logger.error(log_message, exc_info=None if not DEBUG else True, extra={'key': api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail if DEBUG else ''})
                 yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
-                # 在流式响应中，如果一个 key 失败，尝试下一个
-                if len(used_keys) < 6: # 限制重试
-                  await process_request(chat_request, http_request, request_type, api_key_stack, used_keys)
 
         if chat_request.stream:
             return StreamingResponse(stream_generator(), media_type="text/event-stream")
@@ -144,15 +151,14 @@ async def process_request(chat_request: ChatCompletionRequest, http_request:Requ
                 error_detail = handle_gemini_error(e)
                 log_message = f"API Key failed: {error_detail}"
                 logger.error(log_message, exc_info=None if not DEBUG else True, extra={'key': api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message':error_detail if DEBUG else ''})
-                if len(used_keys) >= 6:
-                  break # 达到重试限制，跳出循环
+
     msg = "所有API密钥或重试次数均失败"
     logger.error(msg, extra={'key': "ALL", 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message':msg if DEBUG else ''})
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
 async def chat_completions(request: ChatCompletionRequest, http_request: Request, _: None = Depends(verify_password)):
-    api_key_stack = await get_api_key_stack()
+    api_key_stack = get_api_key_stack()
     used_keys = set()
     return await process_request(request, http_request, "stream" if request.stream else "non-stream", api_key_stack, used_keys)
 
@@ -160,6 +166,5 @@ async def chat_completions(request: ChatCompletionRequest, http_request: Request
 async def global_exception_handler(request: Request, exc: Exception):
     error_message = translate_error(str(exc))
     log_extra = {'key': 'N/A', 'request_type': 'N/A', 'model': 'N/A', 'status_code': 500, 'error_message': error_message}
-    # 始终不包含 exc_info, 除非 DEBUG
-    logger.error(f"Unhandled exception", exc_info=None if not DEBUG else True, extra=log_extra)
+    logger.error(f"Unhandled exception ({exc.__class__.__name__}): {error_message}", exc_info=None if not DEBUG else True, extra=log_extra)
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ErrorResponse(message=str(exc), type="internal_error").dict())
