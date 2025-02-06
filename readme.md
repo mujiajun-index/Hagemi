@@ -36,7 +36,7 @@
 
 1.  创建一个新的 Space。
 2.  将本项目代码上传到 Space。
-3.  在 Space 的 `Settings` -> `Variables` 中设置以下环境变量：
+3.  在 Space 的 `Settings` -> `Secrets` 中设置以下环境变量：
     *   `GEMINI_API_KEYS`：你的 Gemini API 密钥，用逗号分隔（例如：`key1,key2,key3`）。
     *   `PASSWORD`：（可选）设置访问密码，留空则使用默认密码 `"123"`。
     *   `MAX_REQUESTS_PER_MINUTE`：（可选）每分钟最大请求数。
