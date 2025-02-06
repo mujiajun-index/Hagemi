@@ -1,66 +1,247 @@
-import google.generativeai as genai
-from .models import ChatCompletionRequest, Message
+# gemini.py
+import requests
+import json
 import os
 import asyncio
-from google.api_core.exceptions import GoogleAPIError, ResourceExhausted, InternalServerError, ServiceUnavailable, InvalidArgument
+from app.models import ChatCompletionRequest, Message  # 相对导入
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, List
+import httpx
+
+
+@dataclass
+class GeneratedText:
+    text: str
+    finish_reason: Optional[str] = None
+
+
+class ResponseWrapper:
+    def __init__(self, data: Dict[Any, Any]):  # 正确的初始化方法名
+        self._data = data
+        self._text = self._extract_text()
+        self._finish_reason = self._extract_finish_reason()
+        self._prompt_token_count = self._extract_prompt_token_count()
+        self._candidates_token_count = self._extract_candidates_token_count()
+        self._total_token_count = self._extract_total_token_count()
+        self._thoughts = self._extract_thoughts()
+        self._json_dumps = json.dumps(self._data, indent=4, ensure_ascii=False)
+
+    def _extract_thoughts(self) -> Optional[str]:
+        try:
+            for part in self._data['candidates'][0]['content']['parts']:
+                if 'thought' in part:
+                    return part['text']
+            return ""
+        except (KeyError, IndexError):
+            return ""
+
+    def _extract_text(self) -> str:
+        try:
+            for part in self._data['candidates'][0]['content']['parts']:
+                if 'thought' not in part:
+                    return part['text']
+            return ""
+        except (KeyError, IndexError):
+            return ""
+
+    def _extract_finish_reason(self) -> Optional[str]:
+        try:
+            return self._data['candidates'][0].get('finishReason')
+        except (KeyError, IndexError):
+            return None
+
+    def _extract_prompt_token_count(self) -> Optional[int]:
+        try:
+            return self._data['usageMetadata'].get('promptTokenCount')
+        except (KeyError):
+            return None
+
+    def _extract_candidates_token_count(self) -> Optional[int]:
+        try:
+            return self._data['usageMetadata'].get('candidatesTokenCount')
+        except (KeyError):
+            return None
+
+    def _extract_total_token_count(self) -> Optional[int]:
+        try:
+            return self._data['usageMetadata'].get('totalTokenCount')
+        except (KeyError):
+            return None
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @property
+    def finish_reason(self) -> Optional[str]:
+        return self._finish_reason
+
+    @property
+    def prompt_token_count(self) -> Optional[int]:
+        return self._prompt_token_count
+
+    @property
+    def candidates_token_count(self) -> Optional[int]:
+        return self._candidates_token_count
+
+    @property
+    def total_token_count(self) -> Optional[int]:
+        return self._total_token_count
+
+    @property
+    def thoughts(self) -> Optional[str]:
+        return self._thoughts
+
+    @property
+    def json_dumps(self) -> str:
+        return self._json_dumps
 
 
 class GeminiClient:
-    AVAILABLE_MODELS = ["gemini-pro", "gemini-pro-vision"]
+
+    AVAILABLE_MODELS = []
+    EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
 
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self.model_cache = {}
         self.api_key = api_key
 
-    def get_model(self, model_name: str):
-        if model_name not in self.model_cache:
-            self.model_cache[model_name] = genai.GenerativeModel(model_name)
-        return self.model_cache[model_name]
+    async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        headers = {
+            "Content-Type": "application/json",
+        }
+        data = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": request.temperature,
+                "maxOutputTokens": request.max_tokens,
+            },
+            "safetySettings": safety_settings,
+        }
+        if system_instruction:
+            data["system_instruction"] = system_instruction
+        async with httpx.AsyncClient() as client:
+            async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        line = line[6:]
+                    try:
+                        data = json.loads(line)
+                        if 'candidates' in data and data['candidates']:
+                            candidate = data['candidates'][0]
+                            if 'content' in candidate:
+                                content = candidate['content']
+                                if 'parts' in content and content['parts']:
+                                    parts = content['parts']
+                                    text = parts[0].get('text', '')
+                                    finish_reason = candidate.get(
+                                        'finishReason')
+                                    if text:
+                                        yield text
+                    except:
+                        continue
 
-    async def _send_message(self, model_name: str, messages: list, stream: bool):
-        model = self.get_model(model_name)
-        chat = model.start_chat(history=self.convert_messages(messages))
-        last_message_content = messages[-1].content if messages else ""
-        if stream:
-            response = await chat.send_message_async(last_message_content, stream=True)
-            return response
+    def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{request.model}:generateContent?key={self.api_key}"
+        headers = {
+            "Content-Type": "application/json",
+        }
+        data = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": request.temperature,
+                "maxOutputTokens": request.max_tokens,
+            },
+            "safetySettings": safety_settings,
+        }
+        if system_instruction:
+            data["system_instruction"] = system_instruction
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        return ResponseWrapper(response.json())
+
+    def convert_messages(self, messages, use_system_prompt=False):
+        gemini_history = []
+        errors = []
+        system_instruction_text = ""
+        is_system_phase = use_system_prompt
+        for i, message in enumerate(messages):
+            role = message.role
+            content = message.content
+
+            if isinstance(content, str):
+                if is_system_phase and role == 'system':
+                    if system_instruction_text:
+                        system_instruction_text += "\n" + content
+                    else:
+                        system_instruction_text = content
+                else:
+                    is_system_phase = False
+
+                    if role in ['user', 'system']:
+                        role_to_use = 'user'
+                    elif role == 'assistant':
+                        role_to_use = 'model'
+                    else:
+                        errors.append(f"Invalid role: {role}")
+                        continue
+
+                    if gemini_history and gemini_history[-1]['role'] == role_to_use:
+                        gemini_history[-1]['parts'].append({"text": content})
+                    else:
+                        gemini_history.append(
+                            {"role": role_to_use, "parts": [{"text": content}]})
+            elif isinstance(content, list):
+                parts = []
+                for item in content:
+                    if item.get('type') == 'text':
+                        parts.append({"text": item.get('text')})
+                    elif item.get('type') == 'image_url':
+                        image_data = item.get('image_url', {}).get('url', '')
+                        if image_data.startswith('data:image/'):
+                            try:
+                                mime_type, base64_data = image_data.split(';')[
+                                    0].split(':')[1], image_data.split(',')[1]
+                                parts.append({
+                                    "inline_data": {
+                                        "mime_type": mime_type,
+                                        "data": base64_data
+                                    }
+                                })
+                            except (IndexError, ValueError):
+                                errors.append(
+                                    f"Invalid data URI for image: {image_data}")
+                        else:
+                            errors.append(
+                                f"Invalid image URL format for item: {item}")
+
+                if parts:
+                    if role in ['user', 'system']:
+                        role_to_use = 'user'
+                    elif role == 'assistant':
+                        role_to_use = 'model'
+                    else:
+                        errors.append(f"Invalid role: {role}")
+                        continue
+                    if gemini_history and gemini_history[-1]['role'] == role_to_use:
+                        gemini_history[-1]['parts'].extend(parts)
+                    else:
+                        gemini_history.append(
+                            {"role": role_to_use, "parts": parts})
+        if errors:
+            return errors
         else:
-            response = chat.send_message(last_message_content, stream=False)
-            return response
-
-    async def stream_chat(self, request: ChatCompletionRequest):
-        try:
-            response = await self._send_message(request.model, request.messages, stream=True)
-            async for chunk in response:
-                yield chunk.text
-        except (GoogleAPIError, ResourceExhausted, InternalServerError, ServiceUnavailable, InvalidArgument) as e:
-            raise
-
-    def complete_chat(self, request: ChatCompletionRequest):
-        try:
-            response = self._send_message(request.model, request.messages, stream=False)
-            return response.text
-        except (GoogleAPIError, ResourceExhausted, InternalServerError, ServiceUnavailable, InvalidArgument) as e:
-            raise
-
-    def convert_messages(self, messages) -> list:
-        gemini_messages = []
-        for msg in messages:
-            if msg.role == "system":
-                gemini_messages.insert(0, {"role": "user", "parts": [msg.content]})
-            elif msg.role == "user":
-                gemini_messages.append({"role": "user", "parts": [msg.content]})
-            elif msg.role == "assistant":
-                gemini_messages.append({"role": "model", "parts": [msg.content]})
-        return gemini_messages
+            return gemini_history, {"parts": [{"text": system_instruction_text}]}
 
     @staticmethod
-    def list_available_models(api_key) -> list:
-        try:
-            genai.configure(api_key=api_key)
-            models = genai.list_models()
-            return [model.name for model in models]
-        except Exception as e:
-            print(f"Error listing models: {e}")
-            return []
+    async def list_available_models(api_key) -> list:
+        url = "https://generativelanguage.googleapis.com/v1beta/models?key={}".format(
+            api_key)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+            models = [model["name"] for model in data.get("models", [])]
+            models.extend(GeminiClient.EXTRA_MODELS)
+            return models

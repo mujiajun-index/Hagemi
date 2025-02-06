@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-google-generativeai
+httpx
 python-dotenv
-pydantic
+requests
+apscheduler
