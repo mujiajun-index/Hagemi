@@ -17,16 +17,14 @@
 ### 🔒 密码保护（可选）：
 
 *   通过 `PASSWORD` 环境变量设置密码。
-*   启用密码保护后，所有请求需要在 `Authorization` 请求头中提供 `Bearer <password>` 令牌。
-*   提供默认密码 `"123"`，**强烈建议在生产环境中修改**。
+*   提供默认密码 `"123"`。
 
 ### 🚦 速率限制和防滥用：
 
-*   基于 IP 地址和请求路径进行速率限制。
 *   通过环境变量自定义限制：
     *   `MAX_REQUESTS_PER_MINUTE`：每分钟最大请求数（默认 30）。
     *   `MAX_REQUESTS_PER_DAY_PER_IP`：每天每个 IP 最大请求数（默认 600）。
-*   超过速率限制时返回 429 错误，并提供详细的错误信息。
+*   超过速率限制时返回 429 错误。
 
 ### 🧩 服务兼容
 
@@ -43,8 +41,8 @@
     *   `PASSWORD`：（可选）设置访问密码，留空则使用默认密码 `"123"`。
     *   `MAX_REQUESTS_PER_MINUTE`：（可选）每分钟最大请求数。
     *   `MAX_REQUESTS_PER_DAY_PER_IP`：（可选）每天每个 IP 最大请求数。
-    ...
-4.  确保 `requirements.txt` 文件已包含必要的依赖（`fastapi`, `uvicorn`, `google-generativeai`, `pydantic`）。
+    ...(还有一些变量,但是没啥大用,可以到代码里找)
+4.  确保 `requirements.txt` 文件已包含必要的依赖。
 5.  Space 将会自动构建并运行。
 6.  URL格式为`https://your-space-url.hf.space`。
 
@@ -64,5 +62,4 @@
 
 *   **强烈建议在生产环境中设置 `PASSWORD` 环境变量，并使用强密码。**
 *   根据你的使用情况调整速率限制相关的环境变量。
-*   生产环境中建议将 `DEBUG` 设置为 `"false"`，以减少日志量。
 *   确保你的 Gemini API 密钥具有足够的配额。
