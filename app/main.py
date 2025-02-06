@@ -47,7 +47,7 @@ sys.excepthook = handle_exception
 app = FastAPI()
 
 # --- 环境变量 ---
-API_KEYS = os.environ.get("GEMINI_API_KEYS", "111,AIzaSyCnmiWgVV5El2JAcWbny7HeSaWJg8PrsRk").split(",")
+API_KEYS = os.environ.get("GEMINI_API_KEYS", "").split(",")
 if not API_KEYS:
     raise ValueError("请设置 GEMINI_API_KEYS 环境变量")
 PASSWORD = os.environ.get("PASSWORD", "123")
