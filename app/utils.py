@@ -52,23 +52,30 @@ class APIKeyManager:
 
 
     def get_available_key(self):
-        """从栈顶获取密钥，栈空时重新生成"""
+        """从栈顶获取密钥，栈空时重新生成 (修改后)"""
         while self.key_stack:
-            key = self.key_stack.pop() # 从栈顶取出一个密钥
+            key = self.key_stack.pop()
             if key not in self.api_key_blacklist and key not in self.tried_keys_for_request:
-                self.tried_keys_for_request.add(key) # 记录本次尝试使用的 key
+                self.tried_keys_for_request.add(key)
                 return key
 
-        # 栈为空，或者栈中的密钥都不可用 (在黑名单或已尝试过)
         if not self.api_keys:
-            log_msg = format_log_message('ERROR', "没有配置任何 API 密钥！", extra={'request_type': 'get_key', 'status_code': 'N/A'})
+            log_msg = format_log_message('ERROR', "没有配置任何 API 密钥！")
             print(log_msg)
             return None
 
-        log_msg = format_log_message('WARNING', "密钥栈已用尽或栈内密钥均不可用，重新生成密钥栈", extra={'request_type': 'get_key', 'status_code': 'N/A'})
+        log_msg = format_log_message('WARNING', "密钥栈已用尽或栈内密钥均不可用，重新生成密钥栈")
         print(log_msg)
         self._reset_key_stack() # 重新生成密钥栈
-        return self.get_available_key() # 递归调用自身，从新栈中获取密钥
+
+        # 再次尝试从新栈中获取密钥 (迭代一次)
+        while self.key_stack:
+            key = self.key_stack.pop()
+            if key not in self.api_key_blacklist and key not in self.tried_keys_for_request:
+                self.tried_keys_for_request.add(key)
+                return key
+
+        return None
 
 
     def show_all_keys(self):

@@ -154,13 +154,15 @@ async def startup_event():
         key_manager.show_all_keys()
         log_msg = format_log_message('INFO', f"可用 API 密钥数量：{len(key_manager.api_keys)}")
         print(log_msg)
+        MAX_RETRIES = len(key_manager.api_keys)  # 动态设置 MAX_RETRIES 为密钥数量
+        log_msg = format_log_message('INFO', f"最大重试次数设置为：{MAX_RETRIES}") # 添加日志
+        print(log_msg)
         if key_manager.api_keys:
             all_models = await GeminiClient.list_available_models(key_manager.api_keys[0])
             GeminiClient.AVAILABLE_MODELS = [model.replace(
                 "models/", "") for model in all_models]
             log_msg = format_log_message('INFO', "Available models loaded.")
             print(log_msg)
-
 
 @app.get("/v1/models", response_model=ModelList)
 def list_models():
@@ -197,13 +199,24 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
 
     contents, system_instruction = GeminiClient.convert_messages(
         GeminiClient, chat_request.messages)
-    for attempt in range(1, len(key_manager.api_keys) + 1 if key_manager.api_keys else MAX_RETRIES + 1): # 尝试次数改为 API 密钥数量, 最多 MAX_RETRIES 次
-        extra_log = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model}
-        log_msg = format_log_message('INFO', f"第 {attempt}/{len(key_manager.api_keys) if key_manager.api_keys else MAX_RETRIES} 次尝试 ...", extra=extra_log)
-        print(log_msg)
+
+    retry_attempts = len(key_manager.api_keys) if key_manager.api_keys else 1 # 重试次数等于密钥数量，至少尝试 1 次
+    for attempt in range(1, retry_attempts + 1):
+        extra_log_attempt_start = {'key': 'N/A', 'request_type': request_type, 'model': chat_request.model} # 初始 key 为 N/A
+        log_msg_attempt_start = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ...", extra=extra_log_attempt_start)
+        print(log_msg_attempt_start)
+
         current_api_key = key_manager.get_available_key() # 每次循环都获取新的 key, 栈逻辑在 get_available_key 中处理
-        if not current_api_key: # 如果 get_available_key 返回 None, 说明没有可用 key 了，直接跳出循环
-            break
+
+        if current_api_key is None: # 检查是否获取到 API 密钥
+            log_msg_no_key = format_log_message('WARNING', "没有可用的 API 密钥，跳过本次尝试", extra={'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A'})
+            print(log_msg_no_key)
+            break  # 如果没有可用密钥，跳出循环
+
+        extra_log = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model} # 使用获取到的 key 记录日志
+        log_msg = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ... 使用密钥: {current_api_key[:8]}...", extra=extra_log)
+        print(log_msg)
+
 
         gemini_client = GeminiClient(current_api_key)
         try:
@@ -228,7 +241,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         log_msg = format_log_message('ERROR', log_message, extra=extra_log_error)
                         print(log_msg)
                         yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
-                        if attempt < (len(key_manager.api_keys) if key_manager.api_keys else MAX_RETRIES): # 流式也根据apikey 数量判断是否切换key
+                        if attempt < retry_attempts: # 流式也根据apikey 数量判断是否切换key
                             switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
                 return StreamingResponse(stream_generator(), media_type="text/event-stream")
             else:
@@ -298,22 +311,22 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             extra_log_request_exception = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail}
             log_msg = format_log_message('ERROR', f"{error_detail}", extra=extra_log_request_exception)
             print(log_msg)
-            if attempt < (len(key_manager.api_keys) if key_manager.api_keys else MAX_RETRIES): # 根据apikey 数量判断是否切换key
+            if attempt < retry_attempts: # 根据apikey 数量判断是否切换key
                 switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{len(key_manager.api_keys) if key_manager.api_keys else MAX_RETRIES} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{retry_attempts} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
         except Exception as e:
             error_detail = handle_gemini_error(
                 e, current_api_key, key_manager, switch_api_key)
             extra_log_exception = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail}
             log_msg = format_log_message('ERROR', f"{error_detail}", extra=extra_log_exception)
             print(log_msg)
-            if attempt < (len(key_manager.api_keys)  if key_manager.api_keys else MAX_RETRIES): # 根据apikey 数量判断是否切换key
+            if attempt < retry_attempts: # 根据apikey 数量判断是否切换key
                 switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{len(key_manager.api_keys) if key_manager.api_keys else MAX_RETRIES} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{retry_attempts} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
 
     msg = "所有API密钥或重试次数均失败"
     extra_log_all_fail = {'key': "ALL", 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': msg}
