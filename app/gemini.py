@@ -105,7 +105,8 @@ class GeminiClient:
         self.api_key = api_key
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        api_version = "v1alpha" if "think" in request.model else "v1beta"
+        url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
             "Content-Type": "application/json",
         }
@@ -141,8 +142,8 @@ class GeminiClient:
                         continue
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{request.model}:generateContent?key={self.api_key}"
+        api_version = "v1alpha" if "think" in request.model else "v1beta"
+        url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
         headers = {
             "Content-Type": "application/json",
         }
