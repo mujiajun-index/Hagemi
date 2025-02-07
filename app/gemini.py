@@ -120,25 +120,34 @@ class GeminiClient:
         }
         if system_instruction:
             data["system_instruction"] = system_instruction
+
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
+                buffer = b""  # 初始化 JSON 缓冲
                 async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        line = line[6:]
+                    if line.startswith("data: "): 
+                        line = line[len("data: "):] 
+                    buffer += line.encode('utf-8')
                     try:
-                        data = json.loads(line)
+                        data = json.loads(buffer.decode('utf-8'))
+                        buffer = b""
                         if 'candidates' in data and data['candidates']:
                             candidate = data['candidates'][0]
                             if 'content' in candidate:
                                 content = candidate['content']
                                 if 'parts' in content and content['parts']:
                                     parts = content['parts']
-                                    text = parts[0].get('text', '')
-                                    finish_reason = candidate.get(
-                                        'finishReason')
+                                    text = ""
+                                    for part in parts:
+                                        if 'text' in part:
+                                            text += part['text']
+                                    finish_reason = candidate.get('finishReason')
                                     if text:
                                         yield text
-                    except:
+                    except json.JSONDecodeError:
+                        continue
+                    except Exception as e:
+                        print(f"Error parsing JSON: {e}")
                         continue
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
