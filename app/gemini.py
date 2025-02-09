@@ -6,6 +6,9 @@ from app.models import ChatCompletionRequest, Message  # 相对导入
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 import httpx
+import logging
+
+logger = logging.getLogger('my_logger')
 
 
 @dataclass
@@ -105,6 +108,7 @@ class GeminiClient:
         self.api_key = api_key
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+        logger.info("流式开始 →")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
@@ -120,35 +124,54 @@ class GeminiClient:
         }
         if system_instruction:
             data["system_instruction"] = system_instruction
-
+        
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
-                buffer = b""  # 初始化 JSON 缓冲
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "): 
-                        line = line[len("data: "):] 
-                    buffer += line.encode('utf-8')
-                    try:
-                        data = json.loads(buffer.decode('utf-8'))
-                        buffer = b""
-                        if 'candidates' in data and data['candidates']:
-                            candidate = data['candidates'][0]
-                            if 'content' in candidate:
-                                content = candidate['content']
-                                if 'parts' in content and content['parts']:
-                                    parts = content['parts']
-                                    text = ""
-                                    for part in parts:
-                                        if 'text' in part:
-                                            text += part['text']
-                                    finish_reason = candidate.get('finishReason')
-                                    if text:
-                                        yield text
-                    except json.JSONDecodeError:
-                        continue
-                    except Exception as e:
-                        print(f"Error parsing JSON: {e}")
-                        continue
+                buffer = b""
+                try:
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+                        if line.startswith("data: "):
+                            line = line[len("data: "):] 
+                        buffer += line.encode('utf-8')
+                        try:
+                            data = json.loads(buffer.decode('utf-8'))
+                            buffer = b""
+                            if 'candidates' in data and data['candidates']:
+                                candidate = data['candidates'][0]
+                                if 'content' in candidate:
+                                    content = candidate['content']
+                                    if 'parts' in content and content['parts']:
+                                        parts = content['parts']
+                                        text = ""
+                                        for part in parts:
+                                            if 'text' in part:
+                                                text += part['text']
+                                        if text:
+                                            yield text
+                                        
+                                if candidate.get("finishReason") and candidate.get("finishReason") != "STOP":
+                                    # logger.warning(f"模型的响应因违反内容政策而被标记: {candidate.get('finishReason')}")
+                                    raise ValueError(f"模型的响应被截断: {candidate.get('finishReason')}")
+                                
+                                if 'safetyRatings' in candidate:
+                                    for rating in candidate['safetyRatings']:
+                                        if rating['probability'] == 'HIGH':
+                                            # logger.warning(f"模型的响应因高概率被标记为 {rating['category']}")
+                                            raise ValueError(f"模型的响应被截断: {rating['category']}")
+                        except json.JSONDecodeError:
+                            # logger.debug(f"JSON解析错误, 当前缓冲区内容: {buffer}")
+                            continue
+                        except Exception as e:
+                            # logger.error(f"流式处理期间发生错误: {e}")
+                            raise e
+                except Exception as e:
+                    # logger.error(f"流式处理错误: {e}")
+                    raise e
+                finally:
+                    logger.info("流式结束 ←")
+
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         api_version = "v1alpha" if "think" in request.model else "v1beta"

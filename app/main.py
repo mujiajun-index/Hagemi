@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message
 import os
 import json
 import asyncio
@@ -12,28 +12,14 @@ import requests
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
+import logging
 
+logging.getLogger("uvicorn").disabled = True
+logging.getLogger("uvicorn.access").disabled = True
 
-DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
-LOG_FORMAT_DEBUG = '%(asctime)s - %(levelname)s - [%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s - %(error_message)s'
-LOG_FORMAT_NORMAL = '[%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s'
-
-
-def format_log_message(level, message, extra=None):
-    """格式化日志消息，模拟之前的 logging 格式"""
-    log_values = {
-        'asctime': datetime.now().strftime("%Y-%m-%d %H:%M:%S"), # 模拟 asctime
-        'levelname': level, # 日志级别
-        'key': extra.get('key', 'N/A') if extra else 'N/A',
-        'request_type': extra.get('request_type', 'N/A') if extra else 'N/A',
-        'model': extra.get('model', 'N/A') if extra else 'N/A',
-        'status_code': extra.get('status_code', 'N/A') if extra else 'N/A',
-        'error_message': extra.get('error_message', '') if extra else '' ,
-        'message': message
-    }
-    log_format = LOG_FORMAT_DEBUG if DEBUG else LOG_FORMAT_NORMAL
-    return log_format % log_values
-
+# 配置 logger
+logger = logging.getLogger("my_logger")
+logger.setLevel(logging.DEBUG)
 
 def translate_error(message: str) -> str:
     if "quota exceeded" in message.lower():
@@ -53,7 +39,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         return
     error_message = translate_error(str(exc_value))
     log_msg = format_log_message('ERROR', f"未捕获的异常: %s" % error_message, extra={'status_code': 500, 'error_message': error_message})
-    print(log_msg)
+    logger.error(log_msg)
 
 
 sys.excepthook = handle_exception
@@ -64,7 +50,7 @@ PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
 MAX_REQUESTS_PER_DAY_PER_IP = int(
     os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
-MAX_RETRIES = int(os.environ.get('MaxRetries', '3').strip() or '3')
+# MAX_RETRIES = int(os.environ.get('MaxRetries', '3').strip() or '3')
 RETRY_DELAY = 1
 MAX_RETRY_DELAY = 16
 safety_settings = [
@@ -122,10 +108,10 @@ def switch_api_key():
     if key:
         current_api_key = key
         log_msg = format_log_message('INFO', f"API key 替换为 → {current_api_key[:8]}...", extra={'key': current_api_key[:8], 'request_type': 'switch_key'})
-        print(log_msg)
+        logger.info(log_msg)
     else:
-        log_msg = format_log_message('ERROR', "API key 替换失败，所有API key都已耗尽或被暂时禁用，请重新配置或稍后重试", extra={'key': 'N/A', 'request_type': 'switch_key', 'status_code': 'N/A'})
-        print(log_msg)
+        log_msg = format_log_message('ERROR', "API key 替换失败，所有API key都已尝试，请重新配置或稍后重试", extra={'key': 'N/A', 'request_type': 'switch_key', 'status_code': 'N/A'})
+        logger.error(log_msg)
 
 
 async def check_keys():
@@ -134,40 +120,40 @@ async def check_keys():
         is_valid = await test_api_key(key)
         status_msg = "有效" if is_valid else "无效"
         log_msg = format_log_message('INFO', f"API Key {key[:10]}... {status_msg}.")
-        print(log_msg)
+        logger.info(log_msg)
         if is_valid:
             available_keys.append(key)
     if not available_keys:
         log_msg = format_log_message('ERROR', "没有可用的 API 密钥！", extra={'key': 'N/A', 'request_type': 'startup', 'status_code': 'N/A'})
-        print(log_msg)
+        logger.error(log_msg)
     return available_keys
 
 
 @app.on_event("startup")
 async def startup_event():
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
-    print(log_msg)
+    logger.info(log_msg)
     available_keys = await check_keys()
     if available_keys:
         key_manager.api_keys = available_keys
         key_manager._reset_key_stack() # 启动时也确保创建随机栈
         key_manager.show_all_keys()
         log_msg = format_log_message('INFO', f"可用 API 密钥数量：{len(key_manager.api_keys)}")
-        print(log_msg)
-        MAX_RETRIES = len(key_manager.api_keys)  # 动态设置 MAX_RETRIES 为密钥数量
-        log_msg = format_log_message('INFO', f"最大重试次数设置为：{MAX_RETRIES}") # 添加日志
-        print(log_msg)
+        logger.info(log_msg)
+        # MAX_RETRIES = len(key_manager.api_keys)
+        log_msg = format_log_message('INFO', f"最大重试次数设置为：{len(key_manager.api_keys)}") # 添加日志
+        logger.info(log_msg)
         if key_manager.api_keys:
             all_models = await GeminiClient.list_available_models(key_manager.api_keys[0])
             GeminiClient.AVAILABLE_MODELS = [model.replace(
                 "models/", "") for model in all_models]
             log_msg = format_log_message('INFO', "Available models loaded.")
-            print(log_msg)
+            logger.info(log_msg)
 
 @app.get("/v1/models", response_model=ModelList)
 def list_models():
     log_msg = format_log_message('INFO', "Received request to list models", extra={'request_type': 'list_models', 'status_code': 200})
-    print(log_msg)
+    logger.info(log_msg)
     return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
 
 
@@ -191,7 +177,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         error_msg = "无效的模型"
         extra_log = {'request_type': request_type, 'model': chat_request.model, 'status_code': 400, 'error_message': error_msg}
         log_msg = format_log_message('ERROR', error_msg, extra=extra_log)
-        print(log_msg)
+        logger.error(log_msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
@@ -202,20 +188,17 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
 
     retry_attempts = len(key_manager.api_keys) if key_manager.api_keys else 1 # 重试次数等于密钥数量，至少尝试 1 次
     for attempt in range(1, retry_attempts + 1):
-        extra_log_attempt_start = {'key': 'N/A', 'request_type': request_type, 'model': chat_request.model} # 初始 key 为 N/A
-        log_msg_attempt_start = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ...", extra=extra_log_attempt_start)
-        print(log_msg_attempt_start)
-
-        current_api_key = key_manager.get_available_key() # 每次循环都获取新的 key, 栈逻辑在 get_available_key 中处理
-
+        if attempt == 1:
+            current_api_key = key_manager.get_available_key() # 每次循环开始都获取新的 key, 栈逻辑在 get_available_key 中处理
+        
         if current_api_key is None: # 检查是否获取到 API 密钥
             log_msg_no_key = format_log_message('WARNING', "没有可用的 API 密钥，跳过本次尝试", extra={'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A'})
-            print(log_msg_no_key)
+            logger.warning(log_msg_no_key)
             break  # 如果没有可用密钥，跳出循环
 
-        extra_log = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model} # 使用获取到的 key 记录日志
+        extra_log = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A', 'error_message': ''}
         log_msg = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ... 使用密钥: {current_api_key[:8]}...", extra=extra_log)
-        print(log_msg)
+        logger.info(log_msg)
 
 
         gemini_client = GeminiClient(current_api_key)
@@ -232,27 +215,27 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     except asyncio.CancelledError:
                         extra_log_cancel = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '客户端已断开连接'}
                         log_msg = format_log_message('INFO', "Client disconnected", extra=extra_log_cancel)
-                        print(log_msg)
+                        logger.info(log_msg)
                     except Exception as e:
                         error_detail = handle_gemini_error(
-                            e, current_api_key, key_manager, switch_api_key)
-                        log_message = f"API Key failed: {error_detail}"
-                        extra_log_error = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail}
-                        log_msg = format_log_message('ERROR', log_message, extra=extra_log_error)
-                        print(log_msg)
+                            e, current_api_key, key_manager)
                         yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
-                        if attempt < retry_attempts: # 流式也根据apikey 数量判断是否切换key
-                            switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
+                        # if attempt < retry_attempts: 
+                        #     switch_api_key() 
                 return StreamingResponse(stream_generator(), media_type="text/event-stream")
             else:
                 async def run_gemini_completion():
                     try:
                         response_content = await asyncio.to_thread(gemini_client.complete_chat, chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction)
+                        if response_content.text == "":
+                            extra_log_empty_response = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 204}
+                            log_msg = format_log_message('INFO', "Gemini API 返回空响应", extra=extra_log_empty_response)
+                            logger.info(log_msg)
                         return response_content
                     except asyncio.CancelledError:
                         extra_log_gemini_cancel = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': 'Gemini API 调用因客户端断开连接而被取消'}
                         log_msg = format_log_message('INFO', "Gemini API call cancelled due to client disconnect", extra=extra_log_gemini_cancel)
-                        print(log_msg)
+                        logger.info(log_msg)
                         raise
 
                 async def check_client_disconnect():
@@ -260,7 +243,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         if await http_request.is_disconnected():
                             extra_log_client_disconnect = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '在非流式请求期间检测到客户端断开连接。正在取消 Gemini API 调用。'}
                             log_msg = format_log_message('INFO', "Client disconnected during non-streaming request.  Cancelling Gemini API call.", extra=extra_log_client_disconnect)
-                            print(log_msg)
+                            logger.info(log_msg)
                             return True
                         await asyncio.sleep(0.5)
 
@@ -280,7 +263,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         except asyncio.CancelledError:
                             extra_log_gemini_task_cancel = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '客户端断开连接后，Gemini API 任务已成功取消。'}
                             log_msg = format_log_message('INFO', "Gemini API task successfully cancelled after client disconnect.", extra=extra_log_gemini_task_cancel)
-                            print(log_msg)
+                            logger.info(log_msg)
                             pass
                         raise HTTPException(status_code=status.HTTP_408_REQUEST_TIMEOUT, detail="Client disconnected")
 
@@ -295,43 +278,25 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                                         choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}])
                         extra_log_success = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
                         log_msg = format_log_message('INFO', "Request successful", extra=extra_log_success)
-                        print(log_msg)
+                        logger.info(log_msg)
                         return response
 
                 except asyncio.CancelledError:
                     extra_log_request_cancel = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message':"请求被取消" }
                     log_msg = format_log_message('INFO', "Request cancelled", extra=extra_log_request_cancel)
-                    print(log_msg)
+                    logger.info(log_msg)
                     raise
 
-
-        except requests.exceptions.RequestException as e:
-            error_detail = handle_gemini_error(
-                e, current_api_key, key_manager, switch_api_key)
-            extra_log_request_exception = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail}
-            log_msg = format_log_message('ERROR', f"{error_detail}", extra=extra_log_request_exception)
-            print(log_msg)
-            if attempt < retry_attempts: # 根据apikey 数量判断是否切换key
-                switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{retry_attempts} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
         except Exception as e:
-            error_detail = handle_gemini_error(
-                e, current_api_key, key_manager, switch_api_key)
-            extra_log_exception = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': error_detail}
-            log_msg = format_log_message('ERROR', f"{error_detail}", extra=extra_log_exception)
-            print(log_msg)
-            if attempt < retry_attempts: # 根据apikey 数量判断是否切换key
-                switch_api_key() # 这里虽然叫 switch_api_key_func, 但实际上 get_available_key 会处理栈和重新生成
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"{retry_attempts} 次尝试后仍然失败，请修改预设或输入") # 错误信息里的重试次数也动态修改
-
-    msg = "所有API密钥或重试次数均失败"
+            handle_gemini_error(
+                e, current_api_key, key_manager)
+            if attempt < retry_attempts: 
+                switch_api_key() 
+                continue
+    msg = "所有API密钥均失败,请更换破限或稍后重试"
     extra_log_all_fail = {'key': "ALL", 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': msg}
     log_msg = format_log_message('ERROR', msg, extra=extra_log_all_fail)
-    print(log_msg)
+    logger.error(log_msg)
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
 
@@ -346,5 +311,5 @@ async def global_exception_handler(request: Request, exc: Exception):
     error_message = translate_error(str(exc))
     extra_log_unhandled_exception = {'status_code': 500, 'error_message': error_message}
     log_msg = format_log_message('ERROR', f"Unhandled exception: {error_message}", extra=extra_log_unhandled_exception)
-    print(log_msg)
+    logger.error(log_msg)
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ErrorResponse(message=str(exc), type="internal_error").dict())
