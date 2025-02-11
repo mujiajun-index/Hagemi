@@ -233,8 +233,7 @@ class GeminiClient:
                         image_data = item.get('image_url', {}).get('url', '')
                         if image_data.startswith('data:image/'):
                             try:
-                                mime_type, base64_data = image_data.split(';')[
-                                    0].split(':')[1], image_data.split(',')[1]
+                                mime_type, base64_data = image_data.split(';')[0].split(':')[1], image_data.split(',')[1]
                                 parts.append({
                                     "inline_data": {
                                         "mime_type": mime_type,
