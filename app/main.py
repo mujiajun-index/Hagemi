@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
 from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message
@@ -321,3 +321,58 @@ async def global_exception_handler(request: Request, exc: Exception):
     log_msg = format_log_message('ERROR', f"Unhandled exception: {error_message}", extra=extra_log_unhandled_exception)
     logger.error(log_msg)
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ErrorResponse(message=str(exc), type="internal_error").dict())
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Gemini API 代理服务</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+            }}
+            h1 {{
+                color: #333;
+                text-align: center;
+                margin-bottom: 30px;
+            }}
+            .info-box {{
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }}
+            .status {{
+                color: #28a745;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>🤖 Gemini API 代理服务</h1>
+        
+        <div class="info-box">
+            <h2>🟢 运行状态</h2>
+            <p class="status">服务运行中</p>
+            <p>可用API密钥数量: {len(key_manager.api_keys)}</p>
+            <p>可用模型数量: {len(GeminiClient.AVAILABLE_MODELS)}</p>
+        </div>
+
+        <div class="info-box">
+            <h2>⚙️ 环境配置</h2>
+            <p>每分钟请求限制: {MAX_REQUESTS_PER_MINUTE}</p>
+            <p>每IP每日请求限制: {MAX_REQUESTS_PER_DAY_PER_IP}</p>
+            <p>最大重试次数: {len(key_manager.api_keys)}</p>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
