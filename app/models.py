@@ -1,9 +1,10 @@
 from typing import List, Dict, Optional, Union, Literal
 from pydantic import BaseModel, Field
 
+from typing import Union, List, Dict
 class Message(BaseModel):
     role: str
-    content: str
+    content: Union[str, List[Dict]]
 
 class ChatCompletionRequest(BaseModel):
     model: str
