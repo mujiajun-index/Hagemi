@@ -13,7 +13,9 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 import logging
-
+from dotenv import load_dotenv
+# 加载.env文件中的环境变量
+load_dotenv()
 logging.getLogger("uvicorn").disabled = True
 logging.getLogger("uvicorn.access").disabled = True
 
@@ -53,6 +55,7 @@ MAX_REQUESTS_PER_DAY_PER_IP = int(
 # MAX_RETRIES = int(os.environ.get('MaxRetries', '3').strip() or '3')
 RETRY_DELAY = 1
 MAX_RETRY_DELAY = 16
+VERSION = os.environ.get('VERSION', "")
 safety_settings = [
     {
         "category": "HARM_CATEGORY_HARASSMENT",
@@ -349,10 +352,18 @@ async def root():
                 border-radius: 4px;
                 padding: 20px;
                 margin-bottom: 20px;
+                position: relative;
             }}
             .status {{
                 color: #28a745;
                 font-weight: bold;
+            }}
+            .version {{
+                position: absolute;
+                bottom: 0px;
+                right: 10px;
+                color: #ccc;
+                font-size: 0.9em; 
             }}
         </style>
     </head>
@@ -371,6 +382,7 @@ async def root():
             <p>每分钟请求限制: {MAX_REQUESTS_PER_MINUTE}</p>
             <p>每IP每日请求限制: {MAX_REQUESTS_PER_DAY_PER_IP}</p>
             <p>最大重试次数: {len(key_manager.api_keys)}</p>
+            <p class="version">v{VERSION}</p>
         </div>
     </body>
     </html>
