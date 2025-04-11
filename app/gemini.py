@@ -125,6 +125,7 @@ class GeminiClient:
         # 确保images目录存在
         image_dir = os.path.join(os.path.dirname(__file__), 'images')
         os.makedirs(image_dir, exist_ok=True)
+        logger.info(f"项目地址：{image_dir}")
         
         # 生成唯一文件名
         file_ext = mime_type.split('/')[-1]
