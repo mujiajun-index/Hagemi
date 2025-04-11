@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
 from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message
@@ -47,6 +48,9 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 app = FastAPI()
+
+# 挂载静态文件目录
+app.mount("/images", StaticFiles(directory="app/images"), name="images")
 
 PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))

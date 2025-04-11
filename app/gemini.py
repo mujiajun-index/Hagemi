@@ -190,7 +190,7 @@ class GeminiClient:
                                                     logger.debug(f"生成的图片数据: {mime_type}--{len(base64_data)}")
                                                     # 保存图片到本地并获取HTTP URL
                                                     image_url = self._save_image_to_local(mime_type, base64_data)
-                                                    logger.debug(f"图片访问URL: {image_url}")
+                                                    logger.debug(f"图片的访问地址: {image_url}")
                                                     text += f"![]({image_url})"
                                         if text:
                                             yield text
