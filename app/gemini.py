@@ -13,7 +13,9 @@ import uuid
 from datetime import datetime
 
 logger = logging.getLogger('my_logger')
-
+from dotenv import load_dotenv
+# 加载.env文件中的环境变量
+load_dotenv()
 
 @dataclass
 class GeneratedText:
@@ -107,7 +109,9 @@ class GeminiClient:
 
     AVAILABLE_MODELS = []
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
-
+    #主机地址
+    HOST_URL = os.environ.get('HOST_URL', "未设置")
+    
     def __init__(self, api_key: str):
         self.api_key = api_key
 
@@ -133,13 +137,14 @@ class GeminiClient:
             f.write(image_data)
         
         # 返回HTTP访问地址
-        return f"http://127.0.0.1:7860/images/{unique_filename}"
+        return f"{GeminiClient.HOST_URL}/images/{unique_filename}"
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         logger.info("流式开始 →")
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
-        logger.info(f"是否是图片模型: {isImageModel}")
+        if isImageModel:
+            logger.info(f"是图片模型: 主机地址：{GeminiClient.HOST_URL}")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
