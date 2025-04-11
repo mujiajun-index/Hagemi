@@ -107,8 +107,17 @@ class GeminiClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
 
+    # 支持图片生成的模型列表 
+    imageModels = [
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash-exp-image-generation",
+    ]
+
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         logger.info("流式开始 →")
+        # 此处根据 request.model 来判断是否是图片生成模型
+        isImageModel = request.model in self.imageModels
+        logger.info(f"是否是图片模型: {isImageModel}")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
@@ -119,12 +128,14 @@ class GeminiClient:
             "generationConfig": {
                 "temperature": request.temperature,
                 "maxOutputTokens": request.max_tokens,
+                "responseModalities": ["Text"] if not isImageModel else ["Text", "Image"]
             },
-            "safetySettings": safety_settings,
+            "safetySettings": safety_settings
         }
-        if system_instruction:
+        if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
         
+        logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
                 buffer = b""
@@ -137,6 +148,7 @@ class GeminiClient:
                         buffer += line.encode('utf-8')
                         try:
                             data = json.loads(buffer.decode('utf-8'))
+                            logger.debug(f"收到数据: {json.dumps(data, ensure_ascii=False)}")
                             buffer = b""
                             if 'candidates' in data and data['candidates']:
                                 candidate = data['candidates'][0]
@@ -170,10 +182,13 @@ class GeminiClient:
                     # logger.error(f"流式处理错误: {e}")
                     raise e
                 finally:
+                    # yield "![](https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png)"
                     logger.info("流式结束 ←")
 
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+        isImageModel = request.model in self.imageModels
+        logger.info(f"是否是图片模型: {isImageModel}")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
         headers = {
@@ -184,14 +199,19 @@ class GeminiClient:
             "generationConfig": {
                 "temperature": request.temperature,
                 "maxOutputTokens": request.max_tokens,
+                "responseModalities": ["Text"] if not isImageModel else ["Text", "Image"]
             },
-            "safetySettings": safety_settings,
+            "safetySettings": safety_settings
         }
-        if system_instruction:
+        if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
+
+        logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
-        return ResponseWrapper(response.json())
+        response_data = response.json()
+        logger.info(f"响应数据: {json.dumps(response_data, ensure_ascii=False)}")
+        return ResponseWrapper(response_data)
 
     def convert_messages(self, messages, use_system_prompt=False):
         gemini_history = []
