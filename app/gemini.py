@@ -148,7 +148,7 @@ class GeminiClient:
                         buffer += line.encode('utf-8')
                         try:
                             data = json.loads(buffer.decode('utf-8'))
-                            logger.debug(f"收到数据: {json.dumps(data, ensure_ascii=False)}")
+                            # logger.debug(f"收到数据: {json.dumps(data, ensure_ascii=False)}")
                             buffer = b""
                             if 'candidates' in data and data['candidates']:
                                 candidate = data['candidates'][0]
@@ -160,6 +160,17 @@ class GeminiClient:
                                         for part in parts:
                                             if 'text' in part:
                                                 text += part['text']
+                                            if 'inlineData' in part:
+                                                inline_data = part['inlineData']
+                                                if 'mimeType' in inline_data and 'data' in inline_data:
+                                                    mime_type = inline_data['mimeType']
+                                                    base64_data = inline_data['data']
+                                                    image_base64_url = f"data:{mime_type};base64,{base64_data}"
+                                                    logger.debug(f"图片数据: {mime_type}--{len(image_base64_url)}")
+                                                    # 在这里处理图片数据, 比如保存到本地并获取http URL
+                                                    # 最后返回图片URL地址
+                                                    text += f"![](https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png)"
+
                                         if text:
                                             yield text
                                         
