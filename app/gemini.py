@@ -8,6 +8,10 @@ from typing import Optional, Dict, Any, List
 import httpx
 import logging
 
+import base64
+import uuid
+from datetime import datetime
+
 logger = logging.getLogger('my_logger')
 
 
@@ -113,6 +117,24 @@ class GeminiClient:
         "gemini-2.0-flash-exp-image-generation",
     ]
 
+    def _save_image_to_local(self, mime_type: str, base64_data: str) -> str:
+        # 确保images目录存在
+        image_dir = os.path.join(os.path.dirname(__file__), 'images')
+        os.makedirs(image_dir, exist_ok=True)
+        
+        # 生成唯一文件名
+        file_ext = mime_type.split('/')[-1]
+        unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
+        file_path = os.path.join(image_dir, unique_filename)
+        
+        # 解码并保存图片
+        image_data = base64.b64decode(base64_data)
+        with open(file_path, 'wb') as f:
+            f.write(image_data)
+        
+        # 返回HTTP访问地址
+        return f"http://127.0.0.1:7860/images/{unique_filename}"
+
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         logger.info("流式开始 →")
         # 此处根据 request.model 来判断是否是图片生成模型
@@ -135,7 +157,7 @@ class GeminiClient:
         if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
         
-        logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
+        # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
                 buffer = b""
@@ -165,12 +187,11 @@ class GeminiClient:
                                                 if 'mimeType' in inline_data and 'data' in inline_data:
                                                     mime_type = inline_data['mimeType']
                                                     base64_data = inline_data['data']
-                                                    image_base64_url = f"data:{mime_type};base64,{base64_data}"
-                                                    logger.debug(f"图片数据: {mime_type}--{len(image_base64_url)}")
-                                                    # 在这里处理图片数据, 比如保存到本地并获取http URL
-                                                    # 最后返回图片URL地址
-                                                    text += f"![](https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png)"
-
+                                                    logger.debug(f"生成的图片数据: {mime_type}--{len(base64_data)}")
+                                                    # 保存图片到本地并获取HTTP URL
+                                                    image_url = self._save_image_to_local(mime_type, base64_data)
+                                                    logger.debug(f"图片访问URL: {image_url}")
+                                                    text += f"![]({image_url})"
                                         if text:
                                             yield text
                                         
