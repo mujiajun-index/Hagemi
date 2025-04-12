@@ -8,7 +8,7 @@ app/images/*
 !app/images/null.txt
 
 # 七牛云SDK缓存文件
-# .qiniu_pythonsdk_hostscache.json
+.qiniu_pythonsdk_hostscache.json
 
 # 环境变量文件
 # .env
