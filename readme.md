@@ -74,9 +74,11 @@
     * 需要新增如下环境变量：
     *   ------------------------------------------------------------------------------------------
     *   `IMAGE_STORAGE_TYPE`：图片存储类型，可选值为 `local` 和 `qiniu`（默认 `local`）。
-    *   `HOST_URL`：你的本地项目api域名，默认为 http://127.0.0.1:7860，仅在 `local` 模式下有效。
+    *   `HOST_URL`：你的本地项目api域名，默认为 http://127.0.0.1:7860 ,仅在 `local` 模式下有效。
     *   `IMAGE_STORAGE_DIR`：本地图片保存地址，默认为 `当前项目的app/images`，仅在 `local` 模式下有效。
     *   ------------------------------------------------------------------------------------------
+    *   腾讯云COS存储配置 https://console.cloud.tencent.com/cos
+    *   腾讯云访问密钥ID https://console.cloud.tencent.com/cam/capi
     *   `TENCENT_SECRET_ID`：腾讯云访问密钥ID，仅在 `tencent` 模式下有效。
     *   `TENCENT_SECRET_KEY`：腾讯云访问密钥Key，仅在 `tencent` 模式下有效。
     *   `TENCENT_REGION`：腾讯云COS区域，仅在 `tencent` 模式下有效。
