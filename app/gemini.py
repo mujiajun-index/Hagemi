@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 import httpx
 import logging
+import datetime
 
 logger = logging.getLogger('my_logger')
 from dotenv import load_dotenv
@@ -105,8 +106,6 @@ class GeminiClient:
 
     AVAILABLE_MODELS = []
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
-    #图片存储类型
-    IMAGE_STORAGE_TYPE = os.environ.get('IMAGE_STORAGE_TYPE', "local")
     
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -129,8 +128,7 @@ class GeminiClient:
         logger.info("流式开始 →")
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
-        if isImageModel:
-            logger.info(f"生成图片保存渠道: {GeminiClient.IMAGE_STORAGE_TYPE}")
+
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
@@ -178,9 +176,15 @@ class GeminiClient:
                                                 if 'mimeType' in inline_data and 'data' in inline_data:
                                                     mime_type = inline_data['mimeType']
                                                     base64_data = inline_data['data']
+                                                    # 记录上传开始时间
+                                                    upload_start_time = datetime.datetime.now()
                                                     logger.debug(f"生成的图片数据: {mime_type}--{len(base64_data)}")
                                                     # 保存图片并获取HTTP URL
                                                     image_url = self._save_image(mime_type, base64_data)
+                                                    # 计算上传耗时
+                                                    upload_end_time = datetime.datetime.now()
+                                                    upload_duration = (upload_end_time - upload_start_time).total_seconds()
+                                                    logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
                                                     logger.debug(f"图片的访问地址: {image_url}")
                                                     text += f"![]({image_url})"
                                         if text:
