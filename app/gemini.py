@@ -8,10 +8,6 @@ from typing import Optional, Dict, Any, List
 import httpx
 import logging
 
-import base64
-import uuid
-from datetime import datetime
-
 logger = logging.getLogger('my_logger')
 from dotenv import load_dotenv
 # 加载.env文件中的环境变量
@@ -114,6 +110,9 @@ class GeminiClient:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
+        # 初始化时获取存储服务实例
+        from app.image_storage import get_image_storage
+        self.storage = get_image_storage()
 
     # 支持图片生成的模型列表 
     imageModels = [
@@ -121,24 +120,10 @@ class GeminiClient:
         "gemini-2.0-flash-exp-image-generation",
     ]
 
-    def _save_image_to_local(self, mime_type: str, base64_data: str) -> str:
-        # 确保images目录存在
-        image_dir = os.path.join(os.path.dirname(__file__), 'images')
-        os.makedirs(image_dir, exist_ok=True)
-        logger.info(f"项目地址：{image_dir}")
-        
-        # 生成唯一文件名
-        file_ext = mime_type.split('/')[-1]
-        unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
-        file_path = os.path.join(image_dir, unique_filename)
-        
-        # 解码并保存图片
-        image_data = base64.b64decode(base64_data)
-        with open(file_path, 'wb') as f:
-            f.write(image_data)
-        
-        # 返回HTTP访问地址
-        return f"{GeminiClient.HOST_URL}/images/{unique_filename}"
+    def _save_image(self, mime_type: str, base64_data: str) -> str:
+        # 直接使用初始化时创建的存储服务实例
+        # 保存图片并返回URL
+        return self.storage.save_image(mime_type, base64_data)
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         logger.info("流式开始 →")
@@ -194,8 +179,8 @@ class GeminiClient:
                                                     mime_type = inline_data['mimeType']
                                                     base64_data = inline_data['data']
                                                     logger.debug(f"生成的图片数据: {mime_type}--{len(base64_data)}")
-                                                    # 保存图片到本地并获取HTTP URL
-                                                    image_url = self._save_image_to_local(mime_type, base64_data)
+                                                    # 保存图片并获取HTTP URL
+                                                    image_url = self._save_image(mime_type, base64_data)
                                                     logger.debug(f"图片的访问地址: {image_url}")
                                                     text += f"![]({image_url})"
                                         if text:
