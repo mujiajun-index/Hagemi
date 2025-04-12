@@ -1,0 +1,22 @@
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 图片存储目录
+app/images/*
+!app/images/null.txt
+
+# 七牛云SDK缓存文件
+.qiniu_pythonsdk_hostscache.json
+
+# 环境变量文件
+# .env
+
+# IDE配置文件
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
