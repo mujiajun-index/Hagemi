@@ -4,3 +4,4 @@ httpx
 python-dotenv
 requests
 apscheduler
+qiniu==7.13.1

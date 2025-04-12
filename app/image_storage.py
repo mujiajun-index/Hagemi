@@ -68,52 +68,53 @@ class LocalImageStorage(ImageStorage):
 
 
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
+from qiniu import Auth, put_data
+
 class CloudImageStorage(ImageStorage):
-    """将图片保存到云存储服务"""
+    """将图片保存到七牛云存储服务"""
     
-    def __init__(self, cloud_provider: str, credentials: dict):
-        """初始化云存储
-        
+    def __init__(self, credentials: dict):
+        """初始化七牛云存储
         Args:
             cloud_provider: 云服务提供商名称
-            credentials: 云服务认证信息
+            credentials: 云服务认证信息，包含access_key和secret_key,空间名称,外链域名
         """
-        self.cloud_provider = cloud_provider
         self.credentials = credentials
-        # 这里应该初始化对应云服务的客户端
-        # 例如: self.client = boto3.client('s3', **credentials) 用于AWS S3
+        self.bucket_name = credentials.get('bucket_name')
+        self.bucket_domain = credentials.get('bucket_domain')
+        # 初始化七牛云客户端
+        self.q = Auth(credentials.get('access_key'), credentials.get('secret_key'))
     
     def save_image(self, mime_type: str, base64_data: str) -> str:
-        """将Base64编码的图片保存到云存储
-        
+        """将Base64编码的图片保存到七牛云存储
         Args:
             mime_type: 图片的MIME类型
             base64_data: Base64编码的图片数据
-            
         Returns:
             str: 图片的HTTP访问地址
         """
-        logger.info(f"保存图片到云存储: {self.cloud_provider}")
-        
+        logger.info(f"保存图片到七牛云存储")
         # 生成唯一文件名
         file_ext = mime_type.split('/')[-1]
         unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
-        
         # 解码图片数据
         image_data = base64.b64decode(base64_data)
+        # 生成上传凭证
+        token = self.q.upload_token(self.bucket_name, unique_filename)
+        # 上传文件
+        ret, info = put_data(
+            token,
+            unique_filename,
+            image_data,
+            mime_type=mime_type
+        )
         
-        # 这里应该实现具体的云存储上传逻辑
-        # 例如对于AWS S3:
-        # self.client.put_object(
-        #     Bucket='my-bucket',
-        #     Key=unique_filename,
-        #     Body=image_data,
-        #     ContentType=mime_type
-        # )
-        # return f"https://my-bucket.s3.amazonaws.com/{unique_filename}"
-        
-        # 由于这是示例，返回一个模拟的URL
-        return f"https://{self.cloud_provider}-storage.example.com/{unique_filename}"
+        if info.status_code == 200:
+            # 返回文件的可访问URL
+            return f"{self.bucket_domain}/{unique_filename}"
+        else:
+            logger.error(f"上传失败: {info}")
+            raise Exception("上传图片到七牛云失败,请检查配置信息")
 
 
 # 工厂函数，根据配置创建合适的存储实例
@@ -127,18 +128,15 @@ def get_image_storage() -> ImageStorage:
         custom_dir = os.environ.get('IMAGE_STORAGE_DIR')
         return LocalImageStorage(host_url, custom_dir)
     
-    elif storage_type == 'cloud':
-        # 使用云存储
-        cloud_provider = os.environ.get('CLOUD_PROVIDER', 'aws')
-        # 从环境变量获取云服务认证信息
+    elif storage_type == 'qiniu':
+        # 七牛云认证配置信息
         credentials = {
-            # 这里应该添加对应云服务所需的认证信息
-            # 例如对于AWS S3:
-            # 'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID'),
-            # 'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            # 'region_name': os.environ.get('AWS_REGION')
+            'access_key': os.environ.get('QINIU_ACCESS_KEY'),
+            'secret_key': os.environ.get('QINIU_SECRET_KEY'),
+            'bucket_name': os.environ.get('QINIU_BUCKET_NAME'),
+            'bucket_domain': os.environ.get('QINIU_BUCKET_DOMAIN')
         }
-        return CloudImageStorage(cloud_provider, credentials)
+        return CloudImageStorage(credentials)
     
     else:
         # 默认使用本地存储
