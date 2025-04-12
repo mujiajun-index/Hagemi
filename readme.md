@@ -72,9 +72,17 @@
     *   `gemini-2.0-flash-exp`
     *   `gemini-2.0-flash-exp-image-generation`
     * 需要新增如下环境变量：
+    *   ------------------------------------------------------------------------------------------
     *   `IMAGE_STORAGE_TYPE`：图片存储类型，可选值为 `local` 和 `qiniu`（默认 `local`）。
     *   `HOST_URL`：你的本地项目api域名，默认为 http://127.0.0.1:7860，仅在 `local` 模式下有效。
     *   `IMAGE_STORAGE_DIR`：本地图片保存地址，默认为 `当前项目的app/images`，仅在 `local` 模式下有效。
+    *   ------------------------------------------------------------------------------------------
+    *   `TENCENT_SECRET_ID`：腾讯云访问密钥ID，仅在 `tencent` 模式下有效。
+    *   `TENCENT_SECRET_KEY`：腾讯云访问密钥Key，仅在 `tencent` 模式下有效。
+    *   `TENCENT_REGION`：腾讯云COS区域，仅在 `tencent` 模式下有效。
+    *   `TENCENT_BUCKET_NAME`：腾讯云COS存储桶名称，仅在 `tencent` 模式下有效。
+    *   `TENCENT_BUCKET_DOMAIN`：腾讯云COS存储桶域名，仅在 `tencent` 模式下有效。
+    *   ------------------------------------------------------------------------------------------
     *   `QINIU_ACCESS_KEY`：你的七牛云AK，仅在 `qiniu` 模式下有效。
     *   `QINIU_SECRET_KEY`：你的七牛云SK，仅在 `qiniu` 模式下有效。
     *   `QINIU_BUCKET_NAME`：你的七牛云空间名称，仅在 `qiniu` 模式下有效。
