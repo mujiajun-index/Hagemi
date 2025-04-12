@@ -117,6 +117,68 @@ class QiniuImageStorage(ImageStorage):
             raise Exception("上传图片到七牛云失败,请检查配置信息")
 
 
+# 腾讯云COS存储实现
+from qcloud_cos import CosConfig,CosS3Client
+import io
+
+class TencentCloudImageStorage(ImageStorage):
+    """将图片保存到腾讯云COS存储服务"""
+    
+    def __init__(self, credentials: dict):
+        """初始化腾讯云COS存储
+        Args:
+            credentials: 云服务认证信息,包含secret_id、secret_key、region、bucket和domain
+        """
+        self.credentials = credentials
+        self.secret_id = credentials.get('secret_id')
+        self.secret_key = credentials.get('secret_key')
+        self.region = credentials.get('region')
+        self.bucket = credentials.get('bucket')
+        self.domain = credentials.get('domain')
+        
+        # 初始化腾讯云COS客户端
+        config = CosConfig(
+            Region=self.region,
+            SecretId=self.secret_id,
+            SecretKey=self.secret_key,
+            Token=None,  # 使用永久密钥时Token为None
+            Scheme='https'  # 指定使用https协议
+        )
+        self.client = CosS3Client(config)        
+    
+    def save_image(self, mime_type: str, base64_data: str) -> str:
+        """将Base64编码的图片保存到腾讯云COS存储
+        Args:
+            mime_type: 图片的MIME类型
+            base64_data: Base64编码的图片数据
+        Returns:
+            str: 图片的HTTP访问地址
+        """
+        logger.info(f"保存图片到腾讯云COS存储")
+        
+        # 生成唯一文件名
+        file_ext = mime_type.split('/')[-1]
+        unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
+        
+        # 解码图片数据
+        image_data = base64.b64decode(base64_data)
+        
+        try:
+            # 上传文件到腾讯云COS
+            response = self.client.put_object(
+                Bucket=self.bucket,
+                Body=io.BytesIO(image_data),
+                Key=unique_filename,
+                ContentType=mime_type
+            )
+            
+            # 返回文件的可访问URL
+            return f"{self.domain}/{unique_filename}"
+        except Exception as e:
+            logger.error(f"上传失败: {e}")
+            raise Exception("上传图片到腾讯云COS失败,请检查配置信息")
+
+
 # 工厂函数，根据配置创建合适的存储实例
 def get_image_storage() -> ImageStorage:
     """根据环境变量配置创建并返回适当的图片存储实例"""
@@ -137,6 +199,17 @@ def get_image_storage() -> ImageStorage:
             'bucket_domain': os.environ.get('QINIU_BUCKET_DOMAIN')
         }
         return QiniuImageStorage(credentials)
+    
+    elif storage_type == 'tencent':
+        # 腾讯云COS认证配置信息
+        credentials = {
+            'secret_id': os.environ.get('TENCENT_SECRET_ID'),
+            'secret_key': os.environ.get('TENCENT_SECRET_KEY'),
+            'region': os.environ.get('TENCENT_REGION'),
+            'bucket': os.environ.get('TENCENT_BUCKET'),
+            'domain': os.environ.get('TENCENT_DOMAIN')
+        }
+        return TencentCloudImageStorage(credentials)
     
     else:
         # 默认使用本地存储

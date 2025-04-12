@@ -5,3 +5,4 @@ python-dotenv
 requests
 apscheduler
 qiniu
+cos-python-sdk-v5
