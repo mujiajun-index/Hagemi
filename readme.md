@@ -63,3 +63,19 @@
 *   **强烈建议在生产环境中设置 `PASSWORD` 环境变量，并使用强密码。**
 *   根据你的使用情况调整速率限制相关的环境变量。
 *   确保你的 Gemini API 密钥具有足够的配额。
+
+
+## ❤ 新增功能：
+
+1.  新增支持Gemini图片生成功能
+    * 支持的生成模型为:
+    *   `gemini-2.0-flash-exp`
+    *   `gemini-2.0-flash-exp-image-generation`
+    * 需要新增如下环境变量：
+    *   `IMAGE_STORAGE_TYPE`：图片存储类型，可选值为 `local` 和 `qiniu`（默认 `local`）。
+    *   `HOST_URL`：你的本地项目api域名，默认为 http://127.0.0.1:7860，仅在 `local` 模式下有效。
+    *   `IMAGE_STORAGE_DIR`：本地图片保存地址，默认为 `当前项目的app/images`，仅在 `local` 模式下有效。
+    *   `QINIU_ACCESS_KEY`：你的七牛云AK，仅在 `qiniu` 模式下有效。
+    *   `QINIU_SECRET_KEY`：你的七牛云SK，仅在 `qiniu` 模式下有效。
+    *   `QINIU_BUCKET_NAME`：你的七牛云空间名称，仅在 `qiniu` 模式下有效。
+    *   `QINIU_BUCKET_DOMAIN`：你的七牛云外链域名，仅在 `qiniu` 模式下有效。
