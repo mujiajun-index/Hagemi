@@ -105,8 +105,8 @@ class GeminiClient:
 
     AVAILABLE_MODELS = []
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
-    #主机地址
-    HOST_URL = os.environ.get('HOST_URL', "未设置")
+    #图片存储类型
+    IMAGE_STORAGE_TYPE = os.environ.get('IMAGE_STORAGE_TYPE', "local")
     
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -130,7 +130,7 @@ class GeminiClient:
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
         if isImageModel:
-            logger.info(f"是图片模型: 主机地址：{GeminiClient.HOST_URL}")
+            logger.info(f"生成图片保存渠道: {GeminiClient.IMAGE_STORAGE_TYPE}")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
