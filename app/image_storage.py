@@ -70,7 +70,7 @@ class LocalImageStorage(ImageStorage):
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
 from qiniu import Auth, put_data
 
-class CloudImageStorage(ImageStorage):
+class QiniuImageStorage(ImageStorage):
     """将图片保存到七牛云存储服务"""
     
     def __init__(self, credentials: dict):
@@ -136,7 +136,7 @@ def get_image_storage() -> ImageStorage:
             'bucket_name': os.environ.get('QINIU_BUCKET_NAME'),
             'bucket_domain': os.environ.get('QINIU_BUCKET_DOMAIN')
         }
-        return CloudImageStorage(credentials)
+        return QiniuImageStorage(credentials)
     
     else:
         # 默认使用本地存储
