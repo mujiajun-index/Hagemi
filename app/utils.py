@@ -10,6 +10,37 @@ import httpx
 from threading import Lock
 import logging
 import sys
+import base64
+from typing import Tuple, Optional
+
+def download_image_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    从HTTP URL下载图片并转换为base64格式
+    
+    Args:
+        url: 图片URL
+        
+    Returns:
+        tuple: (mime_type, base64_data) 或 (None, None) 如果失败
+    """
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        
+        # 验证是否为图片
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('image/'):
+            logger.warning(f"非图片内容类型: {content_type}")
+            return None, None
+            
+        # 获取图片数据并编码为base64
+        image_data = response.content
+        base64_data = base64.b64encode(image_data).decode('utf-8')
+        
+        return content_type, base64_data
+    except Exception as e:
+        logger.error(f"下载图片失败: {e}")
+        return None, None
 
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 LOG_FORMAT_DEBUG = '%(asctime)s - %(levelname)s - [%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s - %(error_message)s'

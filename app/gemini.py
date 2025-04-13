@@ -1,7 +1,6 @@
 import requests
 import json
 import os
-import asyncio
 from app.models import ChatCompletionRequest, Message  # 相对导入
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
@@ -113,6 +112,52 @@ class GeminiClient:
         from app.image_storage import get_image_storage
         self.storage = get_image_storage()
 
+    # 过滤Markdown格式的图片
+    def filter_markdown_images(self, content):
+        import re
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict) and 'parts' in item:
+                    # 只处理AI模型parts中text的Markdown图片
+                    if 'model' in item['role']:
+                        for part in item['parts']:
+                            if 'text' in part and '![' in part['text']:
+                                # 提取Markdown图片URL
+                                matches = re.finditer(r'!\[.*?\]\((.*?)\)', part['text'])
+                                for match in matches:
+                                    image_url = match.group(1)
+                                    # 调用方法获取base64数据并添加到parts
+                                    inline_data = self.get_inline_data_base64_images(image_url)
+                                    item['parts'].append(inline_data)
+                                if matches:
+                                    # 替换Markdown图片标记
+                                    part['text'] = re.sub(r'!\[.*?\]\(.*?\)', '[image]', part['text'])
+
+            return content
+        return content
+
+    #根据 Markdown格式的图片 返回 base64 格式的图片
+    def get_inline_data_base64_images(self, markdown_image):
+        logger.info(f"markdown_image: {markdown_image}")
+        from app.utils import download_image_to_base64
+        
+        mime_type, base64_data = download_image_to_base64(markdown_image)
+        if mime_type and base64_data:
+            return {
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": base64_data
+                }
+            }
+        # 如果下载失败，返回默认图片
+        return {
+            "inline_data": {
+                "mime_type": "image/png",
+                "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdj+P///38ACfsD/QVDRcoAAAAASUVORK5CYII="
+            }
+        }
+
+
     # 支持图片生成的模型列表 
     imageModels = [
         "gemini-2.0-flash-exp",
@@ -126,6 +171,8 @@ class GeminiClient:
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         logger.info("流式开始 →")
+        # 需要过滤contents 消息中的Markdown格式的图片、
+        contents = self.filter_markdown_images(contents);
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
 
