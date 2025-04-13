@@ -105,7 +105,8 @@ class GeminiClient:
 
     AVAILABLE_MODELS = []
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
-    
+    # 历史图片提交方式: all:提交上下文所有图片 last:只提交最后一张图片(推荐)
+    HISTORY_IMAGE_SUBMIT_TYPE = os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")
     def __init__(self, api_key: str):
         self.api_key = api_key
         # 初始化时获取存储服务实例
@@ -116,40 +117,46 @@ class GeminiClient:
     def filter_markdown_images(self, content):
         import re
         if isinstance(content, list):
-            for item in content:
+            first_image_item_processed = False
+            for item in reversed(content):
                 if isinstance(item, dict) and 'parts' in item:
                     # 只处理AI模型parts中text的Markdown图片
                     if 'model' in item['role']:
-                        for part in item['parts']:
+                        for part in reversed(item['parts']):
                             if 'text' in part and '![' in part['text']:
-                                # 提取Markdown图片URL
+                                # 提取Markdown所有图片URL
                                 matches = re.finditer(r'!\[.*?\]\((.*?)\)', part['text'])
                                 for match in matches:
                                     image_url = match.group(1)
-                                    # 调用方法获取base64数据并添加到parts
-                                    inline_data = self.get_inline_data_base64_images(image_url)
+                                    # 根据配置决定是否下载图片
+                                    is_really = True if self.HISTORY_IMAGE_SUBMIT_TYPE == 'all' \
+                                        or (self.HISTORY_IMAGE_SUBMIT_TYPE == 'last' and not first_image_item_processed) else False
+                                    # 调用方法获取base64数据并添加到parts , is_really 是否真的下载图片
+                                    inline_data = self.get_inline_data_base64_images(image_url, is_really)
                                     item['parts'].append(inline_data)
                                 if matches:
                                     # 替换Markdown图片标记
                                     part['text'] = re.sub(r'!\[.*?\]\(.*?\)', '[image]', part['text'])
+                                    first_image_item_processed = True
 
             return content
         return content
 
-    #根据 Markdown格式的图片 返回 base64 格式的图片
-    def get_inline_data_base64_images(self, markdown_image):
-        logger.info(f"markdown_image: {markdown_image}")
-        from app.utils import download_image_to_base64
-        
-        mime_type, base64_data = download_image_to_base64(markdown_image)
-        if mime_type and base64_data:
-            return {
-                "inline_data": {
-                    "mime_type": mime_type,
-                    "data": base64_data
+    #根据 Markdown格式的图片 返回 base64 格式的图片  is_really 是否真的下载图片
+    def get_inline_data_base64_images(self, markdown_image, is_really=True):
+        logger.info(f"下载请求中的图片: {markdown_image} is_really: {is_really}")
+        # 真正下载图片
+        if is_really:
+            from app.utils import download_image_to_base64
+            mime_type, base64_data = download_image_to_base64(markdown_image)
+            if mime_type and base64_data:
+                return {
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": base64_data
+                    }
                 }
-            }
-        # 如果下载失败，返回默认图片
+        # 如果下载失败，或不需要下载，返回默认无效图片
         return {
             "inline_data": {
                 "mime_type": "image/png",
