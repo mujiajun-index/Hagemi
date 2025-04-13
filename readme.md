@@ -72,6 +72,7 @@
     *   `gemini-2.0-flash-exp`
     *   `gemini-2.0-flash-exp-image-generation`
     * 需要新增如下环境变量：
+    *   `HISTORY_IMAGE_SUBMIT_TYPE`：历史生成图片提交方式，last:只提交最近发来消息中的图片(推荐)。all:提交上下文所有图片
     *   ------------------------------------------------------------------------------------------
     *   `IMAGE_STORAGE_TYPE`：图片存储类型，可选值为 `local` 和 `qiniu`（默认 `local`）。
     *   `HOST_URL`：你的本地项目api域名，默认为 http://127.0.0.1:7860 ,仅在 `local` 模式下有效。

@@ -144,7 +144,7 @@ class GeminiClient:
 
     #根据 Markdown格式的图片 返回 base64 格式的图片  is_really 是否真的下载图片
     def get_inline_data_base64_images(self, markdown_image, is_really=True):
-        logger.info(f"下载请求中的图片: {markdown_image} is_really: {is_really}")
+        # logger.info(f"下载请求中的图片: {markdown_image} is_really: {is_really}")
         # 真正下载图片
         if is_really:
             from app.utils import download_image_to_base64
