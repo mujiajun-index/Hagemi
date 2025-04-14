@@ -269,7 +269,7 @@ class GeminiClient:
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
         isImageModel = request.model in self.imageModels
-        logger.info(f"是否是图片模型: {isImageModel}")
+        # logger.info(f"是否是图片模型: {isImageModel}")
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
         headers = {
@@ -287,11 +287,11 @@ class GeminiClient:
         if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
 
-        logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
+        # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
         response_data = response.json()
-        logger.info(f"响应数据: {json.dumps(response_data, ensure_ascii=False)}")
+        # logger.info(f"响应数据: {json.dumps(response_data, ensure_ascii=False)}")
         return ResponseWrapper(response_data)
 
     def convert_messages(self, messages, use_system_prompt=False):
