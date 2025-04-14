@@ -4,8 +4,8 @@
 这是一个基于 FastAPI 构建的 Gemini API 代理，旨在提供一个简单、安全且可配置的方式来访问 Google 的 Gemini 模型。适用于在 Hugging Face Spaces 上部署，并支持openai api格式的工具集成，并在此基础上新增兼容支持Gemini最新图片识别、生成、编辑功能，并且适配主流AI聊天客户端，如Chatbox、等。
 ## 📸 生图示例：
 <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-    <a href="https://s21.ax1x.com/2025/04/14/pEWYxRs.png"><img src="https://s21.ax1x.com/2025/04/14/pEWYxRs.png" alt="图片生成" style="width: 200px;" /></a>
-    <a href="https://s21.ax1x.com/2025/04/14/pEWYIxI.png"><img src="https://s21.ax1x.com/2025/04/14/pEWYIxI.png" alt="图片编辑" style="width: 200px;" /></a>
+    <a href="https://s21.ax1x.com/2025/04/14/pEWYxRs.png" target="_blank"><img src="https://s21.ax1x.com/2025/04/14/pEWYxRs.png" alt="图片生成" style="width: 200px;" /></a>
+    <a href="https://s21.ax1x.com/2025/04/14/pEWYIxI.png" target="_blank"><img src="https://s21.ax1x.com/2025/04/14/pEWYIxI.png" alt="图片编辑" style="width: 200px;" /></a>
 </div>
 
 ## ✨ 主要功能：
