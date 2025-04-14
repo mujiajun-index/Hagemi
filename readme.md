@@ -89,8 +89,8 @@
     *   `TENCENT_SECRET_ID`：腾讯云访问密钥ID，仅在 `tencent` 模式下有效。
     *   `TENCENT_SECRET_KEY`：腾讯云访问密钥Key，仅在 `tencent` 模式下有效。
     *   `TENCENT_REGION`：腾讯云COS区域，仅在 `tencent` 模式下有效。【最好和服务器同区域】
-    *   `TENCENT_BUCKET_NAME`：腾讯云COS存储桶名称，仅在 `tencent` 模式下有效。
-    *   `TENCENT_BUCKET_DOMAIN`：腾讯云COS存储桶域名，仅在 `tencent` 模式下有效。
+    *   `TENCENT_BUCKET`：腾讯云COS存储桶名称，仅在 `tencent` 模式下有效。
+    *   `TENCENT_DOMAIN`：腾讯云COS存储桶域名，仅在 `tencent` 模式下有效。
     *   ------------------------------------------------------------------------------------------
     *   `QINIU_ACCESS_KEY`：你的七牛云AK，仅在 `qiniu` 模式下有效。
     *   `QINIU_SECRET_KEY`：你的七牛云SK，仅在 `qiniu` 模式下有效。
