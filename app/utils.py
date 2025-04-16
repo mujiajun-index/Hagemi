@@ -44,7 +44,7 @@ def download_image_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
 
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 LOG_FORMAT_DEBUG = '%(asctime)s - %(levelname)s - [%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s - %(error_message)s'
-LOG_FORMAT_NORMAL = '[%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s'
+LOG_FORMAT_NORMAL = '%(asctime)s-[%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s'
 
 # 配置 logger
 logger = logging.getLogger("my_logger")
