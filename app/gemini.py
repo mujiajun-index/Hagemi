@@ -1,3 +1,4 @@
+from math import log
 import requests
 import json
 import os
@@ -7,6 +8,7 @@ from typing import Optional, Dict, Any, List
 import httpx
 import logging
 import datetime
+import base64
 
 logger = logging.getLogger('my_logger')
 from dotenv import load_dotenv
@@ -148,7 +150,25 @@ class GeminiClient:
     #根据 Markdown格式的图片 返回 base64 格式的图片  is_really 是否真的下载图片
     def get_inline_data_base64_images(self, markdown_image, is_really=True):
         # logger.info(f"下载请求中的图片: {markdown_image} is_really: {is_really}")
-        # 真正下载图片
+        # 检查是否为内存存储，并尝试从内存中获取图片
+        if is_really and hasattr(self.storage, 'get_image'):
+            try:
+                # 从URL中提取文件名
+                image_name = markdown_image.split('/')[-1]
+                # logger.info(f"尝试从内存中获取图片: {image_name}")
+                base64_data,mime_type = self.storage.get_image(image_name)
+                # logger.info(f"内存中图片的MIME类型: {mime_type} 图片的大小: {len(base64_data)}")
+                if base64_data:
+                    return {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": base64_data
+                        }
+                    }
+            except Exception:
+                pass
+
+        # 如果不是内存存储或从内存获取失败，则尝试下载
         if is_really:
             from app.utils import download_image_to_base64
             mime_type, base64_data = download_image_to_base64(markdown_image)

@@ -66,6 +66,27 @@ class LocalImageStorage(ImageStorage):
         # 返回HTTP访问地址
         return f"{self.host_url}/images/{unique_filename}"
 
+    def get_image(self, filename: str):
+        """从本地文件系统中获取图片数据
+        
+        Args:
+            filename: 图片文件名
+            
+        Returns:
+            tuple: (base64编码的图片数据, MIME类型) 或 None（如果图片不存在）
+        """
+        file_path = os.path.join(self.image_dir, filename)
+        if os.path.exists(file_path):
+            # 获取MIME类型
+            file_ext = os.path.splitext(filename)[1].lstrip('.')
+            mime_type = f'image/{file_ext}'
+            
+            # 读取文件并转换为base64
+            with open(file_path, 'rb') as f:
+                image_data = f.read()
+                base64_data = base64.b64encode(image_data).decode('utf-8')
+                return base64_data, mime_type
+        return None, None
 
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
 from qiniu import Auth, put_data
@@ -151,12 +172,9 @@ class MemoryImageStorage(ImageStorage):
         file_ext = mime_type.split('/')[-1]
         unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
         
-        # 解码图片数据
-        image_data = base64.b64decode(base64_data)
-        
         # 存储到内存字典中
         self.images[unique_filename] = {
-            'data': image_data,
+            'data': base64_data,
             'mime_type': mime_type,
             'created_at': datetime.now()
         }

@@ -8,13 +8,12 @@ import os
 import json
 import asyncio
 from typing import Literal
-import random
-import requests
 import io
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 import logging
+import base64
 from dotenv import load_dotenv
 # 加载.env文件中的环境变量
 load_dotenv()
@@ -342,12 +341,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def get_memory_image(filename: str):
     # 使用全局图片存储实例
     storage = global_image_storage
-    
     # 检查是否是内存存储实例
     if hasattr(storage, 'get_image'):
         # 从内存中获取图片数据
-        image_data, mime_type = storage.get_image(filename)
-        
+        base64_data, mime_type = storage.get_image(filename)
+        # 解码图片数据
+        image_data = base64.b64decode(base64_data)
         if image_data:
             # 返回图片数据
             return StreamingResponse(io.BytesIO(image_data), media_type=mime_type)
