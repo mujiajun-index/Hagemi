@@ -174,7 +174,7 @@ class MemoryImageStorage(ImageStorage):
         Returns:
             str: 图片的HTTP访问地址
         """
-        logger.info(f"保存图片到内存环形数组，当前位置: {self.current_index}/{self.max_images}")
+        logger.info(f"保存图片到内存中，当前数量: {self.current_index+1}/{self.max_images}")
         
         # 生成唯一文件名
         file_ext = mime_type.split('/')[-1]

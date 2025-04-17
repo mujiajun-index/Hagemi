@@ -255,14 +255,14 @@ class GeminiClient:
                                                     base64_data = inline_data['data']
                                                     # 记录上传开始时间
                                                     upload_start_time = datetime.datetime.now()
-                                                    logger.debug(f"生成的图片数据: {mime_type}--{len(base64_data)}")
+                                                    logger.info(f"生成的图片数据: {mime_type}--{len(base64_data)}")
                                                     # 保存图片并获取HTTP URL
                                                     image_url = self._save_image(mime_type, base64_data)
                                                     # 计算上传耗时
                                                     upload_end_time = datetime.datetime.now()
                                                     upload_duration = (upload_end_time - upload_start_time).total_seconds()
                                                     logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
-                                                    logger.debug(f"图片的访问地址: {image_url}")
+                                                    logger.info(f"图片的访问地址: {image_url}")
                                                     text += f"![]({image_url})"
                                         if text:
                                             yield text

@@ -345,6 +345,10 @@ async def get_memory_image(filename: str):
     if hasattr(storage, 'get_image'):
         # 从内存中获取图片数据
         base64_data, mime_type = storage.get_image(filename)
+        # 检查图片数据是否存在
+        if base64_data is None:
+            raise HTTPException(status_code=404, detail="图片不存在")
+        
         # 解码图片数据
         image_data = base64.b64decode(base64_data)
         if image_data:
