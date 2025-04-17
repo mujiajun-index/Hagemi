@@ -144,7 +144,7 @@ import io
 
 # 内存存储实现
 class MemoryImageStorage(ImageStorage):
-    """将图片保存到内存中"""
+    """将图片保存到内存中，使用环形数组存储，限制最大图片数量"""
     
     def __init__(self, host_url: str):
         """初始化内存存储
@@ -153,11 +153,19 @@ class MemoryImageStorage(ImageStorage):
             host_url: 主机URL，用于构建图片访问地址
         """
         self.host_url = host_url
-        # 使用字典存储图片数据
-        self.images = {}
+        # 从环境变量获取最大图片数量，默认为1000
+        self.max_images = int(os.environ.get('MEMORY_MAX_IMAGE_NUMBER', 1000))
+        # 使用列表实现环形数组存储图片数据
+        self.images_array = [None] * self.max_images
+        # 文件名到数组索引的映射
+        self.filename_to_index = {}
+        # 当前指针位置，指向下一个要写入的位置
+        self.current_index = 0
+        # 已存储的图片数量
+        self.count = 0
     
     def save_image(self, mime_type: str, base64_data: str) -> str:
-        """将Base64编码的图片保存到内存中
+        """将Base64编码的图片保存到内存中的环形数组
         
         Args:
             mime_type: 图片的MIME类型
@@ -166,24 +174,41 @@ class MemoryImageStorage(ImageStorage):
         Returns:
             str: 图片的HTTP访问地址
         """
-        logger.info(f"保存图片到内存")
+        logger.info(f"保存图片到内存环形数组，当前位置: {self.current_index}/{self.max_images}")
         
         # 生成唯一文件名
         file_ext = mime_type.split('/')[-1]
         unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
         
-        # 存储到内存字典中
-        self.images[unique_filename] = {
+        # 如果当前位置已有图片，需要从映射中移除旧文件名
+        if self.images_array[self.current_index] is not None:
+            old_filename = self.images_array[self.current_index]['filename']
+            if old_filename in self.filename_to_index:
+                del self.filename_to_index[old_filename]
+                logger.info(f"覆盖旧图片: {old_filename}")
+        
+        # 存储到环形数组中
+        self.images_array[self.current_index] = {
+            'filename': unique_filename,
             'data': base64_data,
             'mime_type': mime_type,
             'created_at': datetime.now()
         }
         
+        # 更新文件名到索引的映射
+        self.filename_to_index[unique_filename] = self.current_index
+        
+        # 更新指针位置，实现环形覆盖
+        self.current_index = (self.current_index + 1) % self.max_images
+        # 更新计数
+        if self.count < self.max_images:
+            self.count += 1
+            
         # 返回HTTP访问地址
         return f"{self.host_url}/memory-images/{unique_filename}"
     
     def get_image(self, filename: str):
-        """从内存中获取图片数据
+        """从内存环形数组中获取图片数据
         
         Args:
             filename: 图片文件名
@@ -191,8 +216,9 @@ class MemoryImageStorage(ImageStorage):
         Returns:
             tuple: (图片数据, MIME类型) 或 None（如果图片不存在）
         """
-        if filename in self.images:
-            image_info = self.images[filename]
+        if filename in self.filename_to_index:
+            index = self.filename_to_index[filename]
+            image_info = self.images_array[index]
             return image_info['data'], image_info['mime_type']
         return None, None
 

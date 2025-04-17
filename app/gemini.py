@@ -276,6 +276,8 @@ class GeminiClient:
                                         if rating['probability'] == 'HIGH':
                                             # logger.warning(f"模型的响应因高概率被标记为 {rating['category']}")
                                             raise ValueError(f"模型的响应被截断: {rating['category']}")
+                            elif 'error' in data and data['error']:
+                                raise ValueError(f"模型的响应被截断: {data['error']}")
                         except json.JSONDecodeError:
                             # logger.debug(f"JSON解析错误, 当前缓冲区内容: {buffer}")
                             continue
