@@ -10,6 +10,7 @@ import asyncio
 from typing import Literal
 import random
 import requests
+import io
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import sys
@@ -51,6 +52,12 @@ app = FastAPI()
 
 # 挂载静态文件目录
 app.mount("/images", StaticFiles(directory="app/images"), name="images")
+
+# 导入图片存储模块
+from .image_storage import get_image_storage
+
+# 创建全局图片存储实例
+global_image_storage = get_image_storage()
 
 PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
@@ -207,7 +214,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         log_msg = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ... 使用密钥: {current_api_key[:8]}...", extra=extra_log)
         logger.info(log_msg)
 
-        gemini_client = GeminiClient(current_api_key)
+        gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
         try:
             if chat_request.stream:
                 async def stream_generator():
@@ -328,6 +335,25 @@ async def global_exception_handler(request: Request, exc: Exception):
     log_msg = format_log_message('ERROR', f"Unhandled exception: {error_message}", extra=extra_log_unhandled_exception)
     logger.error(log_msg)
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ErrorResponse(message=str(exc), type="internal_error").dict())
+
+
+# 处理内存图片访问的路由
+@app.get("/memory-images/{filename}")
+async def get_memory_image(filename: str):
+    # 使用全局图片存储实例
+    storage = global_image_storage
+    
+    # 检查是否是内存存储实例
+    if hasattr(storage, 'get_image'):
+        # 从内存中获取图片数据
+        image_data, mime_type = storage.get_image(filename)
+        
+        if image_data:
+            # 返回图片数据
+            return StreamingResponse(io.BytesIO(image_data), media_type=mime_type)
+    
+    # 如果图片不存在或不是内存存储，返回404错误
+    raise HTTPException(status_code=404, detail="图片不存在")
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -121,6 +121,64 @@ class QiniuImageStorage(ImageStorage):
 from qcloud_cos import CosConfig,CosS3Client
 import io
 
+# 内存存储实现
+class MemoryImageStorage(ImageStorage):
+    """将图片保存到内存中"""
+    
+    def __init__(self, host_url: str):
+        """初始化内存存储
+        
+        Args:
+            host_url: 主机URL，用于构建图片访问地址
+        """
+        self.host_url = host_url
+        # 使用字典存储图片数据
+        self.images = {}
+    
+    def save_image(self, mime_type: str, base64_data: str) -> str:
+        """将Base64编码的图片保存到内存中
+        
+        Args:
+            mime_type: 图片的MIME类型
+            base64_data: Base64编码的图片数据
+            
+        Returns:
+            str: 图片的HTTP访问地址
+        """
+        logger.info(f"保存图片到内存")
+        
+        # 生成唯一文件名
+        file_ext = mime_type.split('/')[-1]
+        unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}.{file_ext}"
+        
+        # 解码图片数据
+        image_data = base64.b64decode(base64_data)
+        
+        # 存储到内存字典中
+        self.images[unique_filename] = {
+            'data': image_data,
+            'mime_type': mime_type,
+            'created_at': datetime.now()
+        }
+        
+        # 返回HTTP访问地址
+        return f"{self.host_url}/memory-images/{unique_filename}"
+    
+    def get_image(self, filename: str):
+        """从内存中获取图片数据
+        
+        Args:
+            filename: 图片文件名
+            
+        Returns:
+            tuple: (图片数据, MIME类型) 或 None（如果图片不存在）
+        """
+        if filename in self.images:
+            image_info = self.images[filename]
+            return image_info['data'], image_info['mime_type']
+        return None, None
+
+
 class TencentCloudImageStorage(ImageStorage):
     """将图片保存到腾讯云COS存储服务"""
     
@@ -182,13 +240,17 @@ class TencentCloudImageStorage(ImageStorage):
 # 工厂函数，根据配置创建合适的存储实例
 def get_image_storage() -> ImageStorage:
     """根据环境变量配置创建并返回适当的图片存储实例"""
-    storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'local').lower()
+    storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'memory').lower()
     host_url = os.environ.get('HOST_URL', "http://127.0.0.1:7860")
     
     if storage_type == 'local':
         # 使用本地存储
         custom_dir = os.environ.get('IMAGE_STORAGE_DIR')
         return LocalImageStorage(host_url, custom_dir)
+        
+    elif storage_type == 'memory':
+        # 使用内存存储
+        return MemoryImageStorage(host_url)
     
     elif storage_type == 'qiniu':
         # 七牛云认证配置信息

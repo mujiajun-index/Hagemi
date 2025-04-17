@@ -107,11 +107,14 @@ class GeminiClient:
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
     # 历史图片提交方式: all:提交上下文所有图片 last:只提交最后一张图片(推荐)
     HISTORY_IMAGE_SUBMIT_TYPE = os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, storage=None):
         self.api_key = api_key
-        # 初始化时获取存储服务实例
-        from app.image_storage import get_image_storage
-        self.storage = get_image_storage()
+        # 使用传入的存储实例或创建新实例
+        if storage is None:
+            from app.image_storage import get_image_storage
+            self.storage = get_image_storage()
+        else:
+            self.storage = storage
 
     # 过滤Markdown格式的图片
     def filter_markdown_images(self, content):
