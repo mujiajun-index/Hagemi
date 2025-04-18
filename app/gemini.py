@@ -43,10 +43,15 @@ class ResponseWrapper:
 
     def _extract_text(self) -> str:
         try:
+            text = ""
             for part in self._data['candidates'][0]['content']['parts']:
                 if 'thought' not in part:
-                    return part['text']
-            return ""
+                    if 'text' in part:
+                        text += part['text']
+                    elif 'inlineData' in part:
+                        # 这里不处理图片，由GeminiClient处理
+                        pass
+            return text
         except (KeyError, IndexError):
             return ""
 
@@ -293,8 +298,11 @@ class GeminiClient:
 
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+        # 需要过滤contents 消息中的Markdown格式的图片、
+        contents = self.filter_markdown_images(contents);
+        # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
-        # logger.info(f"是否是图片模型: {isImageModel}")
+        
         api_version = "v1alpha" if "think" in request.model else "v1beta"
         url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
         headers = {
@@ -317,6 +325,41 @@ class GeminiClient:
         response.raise_for_status()
         response_data = response.json()
         # logger.info(f"响应数据: {json.dumps(response_data, ensure_ascii=False)}")
+                # 检查响应中的错误
+        if 'error' in response_data and response_data['error']:
+            raise ValueError(f"模型的响应异常: {response_data['error']}")
+
+        # 处理图片生成
+        if isImageModel and 'candidates' in response_data and response_data['candidates']:
+            candidate = response_data['candidates'][0]
+            if 'content' in candidate and 'parts' in candidate['content']:
+                parts = candidate['content']['parts']
+                for part in parts:
+                    if 'inlineData' in part:
+                        inline_data = part['inlineData']
+                        if 'mimeType' in inline_data and 'data' in inline_data:
+                            mime_type = inline_data['mimeType']
+                            base64_data = inline_data['data']
+                            # 记录上传开始时间
+                            upload_start_time = datetime.datetime.now()
+                            logger.info(f"生成的图片数据: {mime_type}--{len(base64_data)}")
+                            # 保存图片并获取HTTP URL
+                            image_url = self._save_image(mime_type, base64_data)
+                            # 计算上传耗时
+                            upload_end_time = datetime.datetime.now()
+                            upload_duration = (upload_end_time - upload_start_time).total_seconds()
+                            logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
+                            logger.info(f"图片的访问地址: {image_url}")
+                            
+                            # 在文本中添加图片链接
+                            for text_part in parts:
+                                if 'text' in text_part:
+                                    text_part['text'] += f"\n![]({image_url})"
+                                    break
+                            else:
+                                # 如果没有找到文本部分，添加一个新的文本部分
+                                parts.append({"text": f"![]({image_url})"})
+        
         return ResponseWrapper(response_data)
 
     def convert_messages(self, messages, use_system_prompt=False):
