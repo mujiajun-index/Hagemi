@@ -99,3 +99,7 @@
     *   `QINIU_SECRET_KEY`：你的七牛云SK，仅在 `qiniu` 模式下有效。
     *   `QINIU_BUCKET_NAME`：你的七牛云空间名称，仅在 `qiniu` 模式下有效。
     *   `QINIU_BUCKET_DOMAIN`：你的七牛云外链域名，仅在 `qiniu` 模式下有效。
+
+2.  新增支持设置代理URL地址
+    * `PROXY_URL`：代理URL地址(用于替换https://generativelanguage.googleapis.com),适用于本地无法访问谷歌的情况
+

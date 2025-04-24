@@ -227,7 +227,8 @@ async def test_api_key(api_key: str) -> bool:
     测试 API 密钥是否有效。
     """
     try:
-        url = "https://generativelanguage.googleapis.com/v1beta/models?key={}".format(api_key)
+        base_url = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
+        url = f"{base_url}/v1beta/models?key={api_key}"
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             response.raise_for_status()

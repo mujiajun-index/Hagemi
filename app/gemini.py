@@ -114,6 +114,8 @@ class GeminiClient:
     EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
     # 历史图片提交方式: all:提交上下文所有图片 last:只提交最后一张图片(推荐)
     HISTORY_IMAGE_SUBMIT_TYPE = os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")
+    # API基础URL，默认为Google官方API地址
+    BASE_URL = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
     def __init__(self, api_key: str, storage=None):
         self.api_key = api_key
         # 使用传入的存储实例或创建新实例
@@ -212,7 +214,7 @@ class GeminiClient:
         isImageModel = request.model in self.imageModels
 
         api_version = "v1alpha" if "think" in request.model else "v1beta"
-        url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        url = f"{self.BASE_URL}/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
             "Content-Type": "application/json",
         }
@@ -304,7 +306,7 @@ class GeminiClient:
         isImageModel = request.model in self.imageModels
         
         api_version = "v1alpha" if "think" in request.model else "v1beta"
-        url = f"https://generativelanguage.googleapis.com/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
+        url = f"{self.BASE_URL}/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
         headers = {
             "Content-Type": "application/json",
         }
@@ -436,7 +438,8 @@ class GeminiClient:
 
     @staticmethod
     async def list_available_models(api_key) -> list:
-        url = "https://generativelanguage.googleapis.com/v1beta/models?key={}".format(
+        base_url = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
+        url = "{}/v1beta/models?key={}".format(base_url,
             api_key)
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
