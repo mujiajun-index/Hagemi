@@ -421,3 +421,8 @@ async def root():
     </html>
     """
     return html_content
+
+# 导入反向代理路由器
+from .proxy import proxy_router
+# 在所有特定路由定义完成后，最后包含反向代理路由器
+app.include_router(proxy_router)
