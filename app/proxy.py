@@ -1,8 +1,10 @@
+from math import log
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import Response, JSONResponse
-import httpx
+from fastapi.responses import Response, JSONResponse, StreamingResponse
+import requests
 import logging
 from datetime import datetime
+import json
 logger = logging.getLogger('my_logger')
 # 定义 API 映射
 api_mapping = {
@@ -57,34 +59,73 @@ async def proxy_request(full_path: str, request: Request):
     datetimeStr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logger.info(f"[{datetimeStr}] Proxying request to {target_url}")
     # 转发请求
-    async with httpx.AsyncClient() as client:
+    try:
+        # 复制请求头部，排除一些不必要的头部
+        headers = dict(request.headers)
+        # 移除可能导致问题的头部，例如 host, referer, origin 等
+        headers.pop('host', None)
+        headers.pop('referer', None)
+        headers.pop('origin', None)
+        headers.pop('user-agent', None) # 可选：根据需要决定是否转发 user-agent        
+        # 获取请求参数中的stream字段
+        request_body = await request.body()
+
         try:
-            # 复制请求头部，排除一些不必要的头部
-            headers = dict(request.headers)
-            # 移除可能导致问题的头部，例如 host, referer, origin 等
-            headers.pop('host', None)
-            headers.pop('referer', None)
-            headers.pop('origin', None)
-            headers.pop('user-agent', None) # 可选：根据需要决定是否转发 user-agent
+            request_json = json.loads(request_body)
+            enable_stream = request_json.get('stream', False)
+        except json.JSONDecodeError:
+            enable_stream = False
 
-            response = await client.request(
-                method=request.method,
-                url=target_url,
-                headers=headers,
-                content=await request.body(), # 转发请求体
-                follow_redirects=True # 根据需要决定是否跟随重定向
+        # 使用requests发送请求，根据stream参数决定是否启用流式响应
+        response = requests.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            data=request_body, # 转发请求体
+            stream=enable_stream # 根据请求参数决定是否启用流式响应
+        )
+        # 处理流式响应
+        async def process_stream():
+            try:
+                for line in response.iter_lines():
+                    if await request.is_disconnected():
+                        # 客户端断开连接，关闭响应并退出
+                        logger.info(f"客户端已断开连接, 关闭响应")
+                        response.close()
+                        break
+                    
+                    if line:
+                        # 确保每个数据块都是正确的SSE格式
+                        if isinstance(line, bytes):
+                            line = line.decode('utf-8')
+                        if not line.startswith('data: '):
+                            line = f"data: {line}\n\n"
+                        else:
+                            line = f"{line}\n\n"
+                        yield line.encode('utf-8')
+            except Exception as e:
+                # 发生异常时确保关闭响应
+                response.close()
+                raise e
+
+        # 根据stream参数决定返回方式
+        if enable_stream:
+            # 返回流式响应
+            return StreamingResponse(
+                content=process_stream(),
+                status_code=response.status_code,
+                media_type=response.headers.get('content-type')
             )
-
-            # 返回目标 API 的响应
+        else:
+            # 返回普通响应
             return Response(
                 content=response.content,
                 status_code=response.status_code,
-                headers=response.headers,
                 media_type=response.headers.get('content-type')
             )
-        except httpx.RequestError as e:
-            # 处理请求错误
-            return JSONResponse(content={"detail": f"Proxy request failed: {e}"}, status_code=500)
-        except Exception as e:
-            # 处理其他未知错误
-            return JSONResponse(content={"detail": f"An unexpected error occurred: {e}"}, status_code=500)
+    except requests.RequestException as e:
+        # 处理请求错误
+        return JSONResponse(content={"detail": f"Proxy request failed: {e}"}, status_code=500)
+    except Exception as e:
+        # 处理其他未知错误
+        return JSONResponse(content={"detail": f"An unexpected error occurred: {e}"}, status_code=500)
