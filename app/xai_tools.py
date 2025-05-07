@@ -7,7 +7,7 @@ import requests
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 
 logger = logging.getLogger('my_logger')
-
+HOST_IMAGE_URL = os.environ.get('HOST_URL', 'https://imgen.x.ai')
 def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
     """
     将grok-2-image模型的聊天请求转换为xai图像生成API请求
@@ -81,6 +81,9 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
                     
                     # 将URL转换为Markdown格式
                     if url:
+                        # 替换xAI图片服务器域名为本地代理地址
+                        if url.startswith('https://imgen.x.ai'):
+                            url = url.replace('https://imgen.x.ai', HOST_IMAGE_URL)
                         images.append({"url": url, "revised_prompt": revised_prompt, "index": i})
                 
                 # 构建符合OpenAI格式的响应结构

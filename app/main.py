@@ -422,7 +422,14 @@ async def root():
     """
     return html_content
 
+from .static_proxy import static_proxy_router
+# 注册静态文件代理路由
+app.include_router(static_proxy_router)
+
 # 导入反向代理路由器
 from .proxy import proxy_router
 # 在所有特定路由定义完成后，最后包含反向代理路由器
 app.include_router(proxy_router)
+
+
+
