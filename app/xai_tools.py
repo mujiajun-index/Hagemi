@@ -45,11 +45,24 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
         else:
             prompt = content
         
+        # 从prompt前10个字符中提取数字作为生成图片数量
+        import re
+        n = request_json.get('n', 1)  # 默认值为1
+        # 获取前10个字符（如果字符串长度小于10，则获取整个字符串）
+        first_10_chars = prompt[:10]
+        # 使用正则表达式匹配数字
+        match = re.search(r'\d+', first_10_chars)
+        if match:
+            n = int(match.group())
+            # 限制n的范围在1-10之间，超出范围则设置为1
+            if n < 1 or n > 10:
+                n = 1
+        
         # 构建图像生成请求
         image_request = {
             "prompt": prompt,
             "model": model,  # 使用grok-2-image模型
-            "n": request_json.get('n', 1),  # 生成图像数量
+            "n": n,  # 使用提取的数字或默认值作为生成图像数量
             "response_format": "url"  # 返回URL格式
         }
         
@@ -89,9 +102,9 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
                 # 构建符合OpenAI格式的响应结构
                 content = ""
                 for img in images:
-                    content += f"![image{img['index']}]({img['url']})\n\n"
-                    if img['revised_prompt']:
+                    if img['index']==0 and img['revised_prompt']:
                         content += f"{img['revised_prompt']}\n\n"
+                    content += f"![image{img['index']}]({img['url']})\n\n"
                 
                 # 创建OpenAI格式的响应
                 openai_response = {
