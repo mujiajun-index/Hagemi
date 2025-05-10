@@ -9,10 +9,8 @@ from fastapi.responses import Response, JSONResponse, StreamingResponse
 logger = logging.getLogger('my_logger')
 HOST_IMAGE_URL = os.environ.get('HOST_URL', 'https://imgen.x.ai')
 XAI_RESPONSE_FORMAT = os.environ.get('XAI_RESPONSE_FORMAT', 'url')
-# 导入图片存储模块
-from app.image_storage import get_image_storage
-# 初始化图片存储服务
-storage = get_image_storage()
+# 导入全局图片存储实例
+from app.main import global_image_storage as storage
 
 def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
     """
