@@ -102,4 +102,7 @@
 
 2.  新增支持设置代理URL地址
     * `PROXY_URL`：代理URL地址(用于替换https://generativelanguage.googleapis.com),适用于本地无法访问谷歌的情况
+3.  新增支持XAI代理,并支持生成图片功能
+    直接访问`https://your-space-url.hf.space/xai/v1`即可,秘钥为XAI秘钥,模型为XAI模型,并支持OpenAI格式调用grok-2-image-1212
+    * `XAI_RESPONSE_FORMAT`：XAI图片生成返回格式 `url`:返回URL格式(xai图片地址),`b64_json`:返回base64格式(根据图片存储类型保存)
 

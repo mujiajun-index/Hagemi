@@ -8,6 +8,12 @@ from fastapi.responses import Response, JSONResponse, StreamingResponse
 
 logger = logging.getLogger('my_logger')
 HOST_IMAGE_URL = os.environ.get('HOST_URL', 'https://imgen.x.ai')
+XAI_RESPONSE_FORMAT = os.environ.get('XAI_RESPONSE_FORMAT', 'url')
+# 导入图片存储模块
+from app.image_storage import get_image_storage
+# 初始化图片存储服务
+storage = get_image_storage()
+
 def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
     """
     将grok-2-image模型的聊天请求转换为xai图像生成API请求
@@ -63,7 +69,7 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
             "prompt": prompt,
             "model": model,  # 使用grok-2-image模型
             "n": n,  # 使用提取的数字或默认值作为生成图像数量
-            "response_format": "url"  # 返回URL格式
+            "response_format": XAI_RESPONSE_FORMAT  # url:返回URL格式,b64_json:返回base64格式
         }
         
         # 如果有user字段，添加到请求中
@@ -90,6 +96,7 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
                 images = []
                 for i, item in enumerate(response_data['data']):
                     url = item.get('url', '')
+                    b64_json = item.get('b64_json', '')
                     revised_prompt = item.get('revised_prompt', '')
                     
                     # 将URL转换为Markdown格式
@@ -98,7 +105,10 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
                         if url.startswith('https://imgen.x.ai'):
                             url = url.replace('https://imgen.x.ai', HOST_IMAGE_URL)
                         images.append({"url": url, "revised_prompt": revised_prompt, "index": i})
-                
+                    elif b64_json:
+                        url = storage.save_image("image/png", b64_json)
+                        images.append({"url": url, "revised_prompt": revised_prompt, "index": i})
+
                 # 构建符合OpenAI格式的响应结构
                 content = ""
                 for img in images:
