@@ -105,6 +105,7 @@ def xai_image_request_converter(method, headers, request_json: Dict[str, Any]):
                         images.append({"url": url, "revised_prompt": revised_prompt, "index": i})
                     elif b64_json:
                         url = storage.save_image("image/png", b64_json)
+                        logger.info(f"图片的访问地址: {url}")
                         images.append({"url": url, "revised_prompt": revised_prompt, "index": i})
 
                 # 构建符合OpenAI格式的响应结构
