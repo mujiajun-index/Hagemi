@@ -23,7 +23,8 @@ api_mapping = {
     '/novita': 'https://api.novita.ai',
     '/portkey': 'https://api.portkey.ai',
     '/fireworks': 'https://api.fireworks.ai',
-    '/openrouter': 'https://openrouter.ai/api'
+    '/openrouter': 'https://openrouter.ai/api',
+    '/ashesb': 'https://newapi.ashesb.com'
 }
 
 proxy_router = APIRouter()
