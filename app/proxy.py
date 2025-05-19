@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 import json
 from .xai_tools import xai_image_request_converter
+from .gemini_tools import gemini_image_request_converter
 logger = logging.getLogger('my_logger')
 # 定义 API 映射
 api_mapping = {
@@ -85,6 +86,12 @@ async def proxy_request(full_path: str, request: Request):
             if "grok-2-image" in model and rest_of_path.startswith('/v1/chat/completions'):
                 #调用xai的图片模型请求转换器,获取转换后的请求地址和参数并设置到请求参数中
                 return xai_image_request_converter(request.method,headers,request_json)
+
+        elif matched_prefix == '/gemini':
+            # 检查模型名称是否包含 "imagen-3.0-generate" 字段
+            if "imagen-3.0-generate" in model and rest_of_path.startswith('/v1beta/chat/completions'):
+                #调用gemini的图片模型请求转换器,获取转换后的请求地址和参数并设置到请求参数中
+                return gemini_image_request_converter(request.method,headers,request_json)
 
         # 使用requests发送请求，根据stream参数决定是否启用流式响应
         response = requests.request(
