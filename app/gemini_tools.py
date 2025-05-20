@@ -57,8 +57,8 @@ def gemini_image_request_converter(method, headers, request_json: Dict[str, Any]
         match = re.search(r'\d+', first_10_chars)
         if match:
             n = int(match.group())
-            # 限制n的范围在1-10之间，超出范围则设置为1
-            if n < 1 or n > 10:
+            # 限制n的范围在1-4之间，超出范围则设置为1
+            if n < 1 or n > 4:
                 n = 1
         
         # 使用正则表达式匹配图片生成比例
