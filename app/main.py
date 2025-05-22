@@ -59,7 +59,8 @@ from .image_storage import get_image_storage
 global_image_storage = get_image_storage()
 
 # IP授权池
-authorized_ips = set()
+WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
+authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
 
 PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
