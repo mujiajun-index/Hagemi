@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, status
+from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
@@ -57,6 +57,9 @@ from .image_storage import get_image_storage
 
 # 创建全局图片存储实例
 global_image_storage = get_image_storage()
+
+# IP授权池
+authorized_ips = set()
 
 PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
@@ -169,17 +172,64 @@ def list_models():
     logger.info(log_msg)
     return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
 
-
+# 校验密码逻辑
 async def verify_password(request: Request):
-    if PASSWORD:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(
-                status_code=401, detail="Unauthorized: Missing or invalid token")
+    if not PASSWORD:
+        return True  # No password set, bypass authentication
+
+    client_ip = request.client.host if request.client else "unknown_ip"
+    # Attempt 1: Authorization Header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        if token != PASSWORD:
-            raise HTTPException(
-                status_code=401, detail="Unauthorized: Invalid token")
+        if token == PASSWORD:
+            return True  # Authorized by header
+        else:
+            # Header was present, Bearer type, but token was wrong. This is a hard fail.
+            logger.warning(format_log_message('WARNING', f"Auth failed for IP {client_ip}: Invalid Bearer token.", 
+                                             extra={'ip': client_ip, 'reason': 'Invalid Bearer token'}))
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized: Invalid token")
+
+    # Attempt 2: Authorized IP
+    if client_ip in authorized_ips:
+        return True  # Authorized by IP
+
+    def verify_auth_command(text: str) -> bool:
+        if text.lower().startswith("auth "):
+            parts = text.split(" ", 1)
+            if len(parts) == 2 and parts[1] == PASSWORD:
+                authorized_ips.add(client_ip)
+                logger.info(format_log_message('INFO', f"IP {client_ip} Successfully authorized through the auth command.",
+                                              extra={'ip': client_ip, 'method': 'AUTH_command'}))
+                return True
+        return False
+
+    request_json = json.loads(await request.body())
+    # Attempt 3: AUTH command in request body
+    if request_json and 'messages' in request_json:
+        messages = request_json['messages']
+        if messages and isinstance(messages, list):
+            last_message = messages[-1]
+            if isinstance(last_message, dict) and 'content' in last_message:
+                content = last_message['content']
+                # 处理字符串类型的content
+                if isinstance(content, str):
+                    if verify_auth_command(content):
+                        return True
+                # 处理数组类型的content
+                elif isinstance(content, list):
+                    text_items = [item.get('text', '') for item in content if item.get('type') == 'text']
+                    if text_items and verify_auth_command(text_items[-1]):
+                        return True
+
+    # If all attempts fail
+    detail_message = "Unauthorized: Authentication required."
+    if auth_header and not auth_header.startswith("Bearer "):
+        detail_message = "Unauthorized: Invalid token type. Bearer token required."
+    
+    logger.warning(format_log_message('WARNING', f"Auth failed for IP {client_ip}: {detail_message}", 
+                                     extra={'ip': client_ip, 'reason': 'All auth methods failed'}))
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail_message)
 
 
 async def process_request(chat_request: ChatCompletionRequest, http_request: Request, request_type: Literal['stream', 'non-stream']):
