@@ -177,7 +177,12 @@ async def verify_password(request: Request):
     if not PASSWORD:
         return True  # No password set, bypass authentication
 
-    client_ip = request.client.host if request.client else "unknown_ip"
+    # 获取客户端真实IP地址
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+               request.headers.get('X-Real-IP', '') or \
+               request.headers.get('CF-Connecting-IP', '') or \
+               request.client.host if request.client else "unknown_ip"
+    
     # Attempt 1: Authorization Header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
