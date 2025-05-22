@@ -200,9 +200,9 @@ async def verify_password(request: Request):
         return True  # Authorized by IP
 
     def verify_auth_command(text: str) -> bool:
-        if text.lower().startswith("auth "):
-            parts = text.split(" ", 1)
-            if len(parts) == 2 and parts[1] == PASSWORD:
+        import re
+        auth_match = re.search(r'auth\s([^\s]+)', text.lower())
+        if auth_match and auth_match.group(1) == PASSWORD:
                 authorized_ips.add(client_ip)
                 logger.info(format_log_message('INFO', f"IP {client_ip} Successfully authorized through the auth command.",
                                               extra={'ip': client_ip, 'method': 'AUTH_command'}))
