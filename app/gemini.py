@@ -199,6 +199,7 @@ class GeminiClient:
     imageModels = [
         "gemini-2.0-flash-exp",
         "gemini-2.0-flash-exp-image-generation",
+        "gemini-2.0-flash-preview-image-generation"
     ]
 
     def _save_image(self, mime_type: str, base64_data: str) -> str:

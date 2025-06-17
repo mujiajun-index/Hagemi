@@ -77,6 +77,7 @@
     * 支持的生成模型有:
     *   `gemini-2.0-flash-exp`
     *   `gemini-2.0-flash-exp-image-generation`
+    *   `gemini-2.0-flash-preview-image-generation`
     * 需要新增如下环境变量：
     *   `HISTORY_IMAGE_SUBMIT_TYPE`：历史生成图片提交方式（默认 `last`）
     *       `last` :只提交最近发来消息中的图片(推荐)
