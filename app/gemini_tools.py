@@ -274,11 +274,15 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                             if url:
                                 # 视频URL可能需要API Key才能下载
                                 download_url = f"{url}&key={api_key}"
-                                logger.info(f"视频的访问地址: {download_url}")
+                                # 使用全局图片存储实例保存视频并获取URL
+                                from app.utils import download_video_to_base64
+                                mime_type, base64_data = download_video_to_base64(download_url) 
+                                url = storage.save_image(mime_type, base64_data)
+                                logger.info(f"视频的访问地址: {url}")
                                 videos.append({"url": download_url, "index": i})
                     
                     if videos:
-                        content = "视频已生成:\n" + "\n".join([f"[{vid['index']}]({vid['url']})" for vid in videos])
+                        content = "视频已生成:\n\n" + "\n\n".join([f"[点击下载]({vid['url']})" for vid in videos])
                         openai_response = {
                             "id": f"chatcmpl-{int(time.time())}",
                             "object": "chat.completion",

@@ -41,6 +41,34 @@ def download_image_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
     except Exception as e:
         logger.error(f"下载图片失败: {e}")
         return None, None
+def download_video_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    从HTTP URL下载视频并转换为base64格式
+    
+    Args:
+        url: 视频URL
+        
+    Returns:
+        tuple: (mime_type, base64_data) 或 (None, None) 如果失败
+    """
+    try:
+        response = requests.get(url, timeout=10) # 视频下载可能需要更长的超时时间
+        response.raise_for_status()
+        
+        # 验证是否为视频
+        content_type = response.headers.get('Content-Type', '')
+        if not content_type.startswith('video/'):
+            logger.warning(f"非视频内容类型: {content_type}")
+            return None, None
+            
+        # 获取视频数据并编码为base64
+        video_data = response.content
+        base64_data = base64.b64encode(video_data).decode('utf-8')
+        
+        return content_type, base64_data
+    except Exception as e:
+        logger.error(f"下载视频失败: {e}")
+        return None, None
 
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 LOG_FORMAT_DEBUG = '%(asctime)s - %(levelname)s - [%(key)s]-%(request_type)s-[%(model)s]-%(status_code)s: %(message)s - %(error_message)s'
