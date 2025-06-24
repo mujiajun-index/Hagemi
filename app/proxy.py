@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 import json
 from .xai_tools import xai_image_request_converter
-from .gemini_tools import gemini_image_request_converter
+from .gemini_tools import gemini_image_request_converter, gemini_veo_request_converter
 logger = logging.getLogger('my_logger')
 # 定义 API 映射
 api_mapping = {
@@ -92,6 +92,10 @@ async def proxy_request(full_path: str, request: Request):
             if "imagen-3.0-generate" in model and rest_of_path.startswith('/v1beta/chat/completions'):
                 #调用gemini的图片模型请求转换器,获取转换后的请求地址和参数并设置到请求参数中
                 return gemini_image_request_converter(request.method,headers,request_json)
+            # 检查模型名称是否包含 "veo" 字段
+            if "veo-2.0-generate" in model and rest_of_path.startswith('/v1beta/chat/completions'):
+                #调用gemini的视频模型请求转换器,获取转换后的请求地址和参数并设置到请求参数中
+                return gemini_veo_request_converter(request.method,headers,request_json)
 
         # 使用requests发送请求，根据stream参数决定是否启用流式响应
         response = requests.request(

@@ -1,4 +1,5 @@
 import json
+from math import log
 import os
 import time
 from typing import Dict, Any
@@ -181,3 +182,133 @@ def gemini_image_request_converter(method, headers, request_json: Dict[str, Any]
             }
         }
         return JSONResponse(content=error_response, status_code=500)
+
+# Gemini视频模型请求转换器
+def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
+    """
+    将gemini-veo模型的聊天请求转换为Gemini视频生成API请求
+    该函数遵循VEO模型的两步异步流程：
+    1. 发送一个长时运行的预测请求到`:predictLongRunning`端点。
+    2. 轮询操作状态，直到视频生成完成或出现错误。
+    """
+    try:
+        model = request_json.get('model', '')
+        enable_stream = request_json.get('stream', False)
+        messages = request_json.get('messages', [])
+        if not messages:
+            logger.error("请求中没有消息内容")
+            return JSONResponse(content={"error": {"message": "请求中没有消息内容", "type": "invalid_request_error", "code": 400}}, status_code=400)
+
+        last_message = messages[-1]
+        content = last_message.get('content', '')
+        if isinstance(content, list):
+            text_items = [item.get('text', '') for item in content if item.get('type') == 'text']
+            prompt = text_items[-1] if text_items else ''
+        else:
+            prompt = content
+
+        # 从prompt前10个字符中提取数字作为生成视频数量
+        import re
+        n = request_json.get('n', 1)  # 默认值为1
+        # 获取前10个字符（如果字符串长度小于10，则获取整个字符串）
+        first_10_chars = prompt[:10]
+        # 使用正则表达式匹配数字
+        match = re.search(r'\d+', first_10_chars)
+        if match:
+            n = int(match.group())
+            # 限制n的范围在1-2之间，超出范围则设置为1
+            if n < 1 or n > 2:
+                n = 1
+        aspect_ratio_pattern = r'(9:16|16:9)'
+        aspect_ratio_match = re.search(aspect_ratio_pattern, prompt)
+        aspect_ratio = aspect_ratio_match.group(1) if aspect_ratio_match else '16:9'
+        video_request = {
+            "instances": [{"prompt": prompt}],
+            "parameters": {
+                "aspectRatio": aspect_ratio,
+                "personGeneration": "allow_adult",
+                # "numberOfVideos": n,
+                "durationSeconds": 8,
+            },
+        }
+        new_request_body = json.dumps(video_request).encode('utf-8')
+
+        auth_header = headers.get('authorization', '')
+        api_key = 'none'
+        if auth_header.startswith('Bearer '):
+            api_key = auth_header[7:]
+
+        # Step 1: Start the long-running prediction job
+        long_running_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:predictLongRunning?key={api_key}"
+        initial_response = requests.post(long_running_url, headers={'Content-Type': 'application/json'}, data=new_request_body)
+
+        if initial_response.status_code != 200:
+            logger.error(f"启动VEO任务失败: {initial_response.text}")
+            return Response(content=initial_response.content, status_code=initial_response.status_code, media_type=initial_response.headers.get('content-type'))
+
+        op_data = initial_response.json()
+        logger.info(f"VEO任务已启动, 操作结果: {op_data}")
+        op_name = op_data.get('name')
+        if not op_name:
+            logger.error(f"未能从响应中获取操作名称: {op_data}")
+            return JSONResponse(content={"error": "未能从响应中获取操作名称"}, status_code=500)
+        # Step 2: Poll for the result
+        status_url = f"https://generativelanguage.googleapis.com/v1beta/{op_name}?key={api_key}"
+        while True:
+            status_response = requests.get(status_url)
+            if status_response.status_code != 200:
+                logger.error(f"检查操作状态失败: {status_response.text}")
+                return Response(content=status_response.content, status_code=status_response.status_code, media_type=status_response.headers.get('content-type'))
+
+            status_data = status_response.json()
+            logger.info(f"VEO任务状态检查结果: {status_data}")
+            if status_data.get('done'):
+                if 'response' in status_data:
+                    # Success case
+                    response_data = status_data['response']
+                    videos = []
+                    if 'generateVideoResponse' in response_data and 'generatedSamples' in response_data['generateVideoResponse']:
+                        for i, sample in enumerate(response_data['generateVideoResponse']['generatedSamples']):
+                            video_info = sample.get('video', {})
+                            url = video_info.get('uri')
+                            if url:
+                                # 视频URL可能需要API Key才能下载
+                                download_url = f"{url}&key={api_key}"
+                                logger.info(f"视频的访问地址: {download_url}")
+                                videos.append({"url": download_url, "index": i})
+                    
+                    if videos:
+                        content = "视频已生成:\n" + "\n".join([f"[{vid['index']}]({vid['url']})" for vid in videos])
+                        openai_response = {
+                            "id": f"chatcmpl-{int(time.time())}",
+                            "object": "chat.completion",
+                            "created": int(time.time()),
+                            "model": model,
+                            "choices": [{"index": 0, "message": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}],
+                            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+                        }
+                        if enable_stream:
+                            chunk_response = openai_response.copy()
+                            chunk_response["object"] = "chat.completion.chunk"
+                            chunk_response["choices"] = [{"index": 0, "delta": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}]
+                            async def generate_response():
+                                yield f"data: {json.dumps(chunk_response)}\n\n"
+                                yield "data: [DONE]\n\n"
+                            return StreamingResponse(content=generate_response(), media_type="text/event-stream")
+                        else:
+                            return JSONResponse(content=openai_response)
+                    else:
+                         return JSONResponse(content={"error": "VEO任务完成但未找到视频数据"}, status_code=500)
+                elif 'error' in status_data:
+                    # Error case
+                    error_details = status_data.get('error', {})
+                    logger.error(f"VEO任务失败: {error_details}")
+                    return JSONResponse(content={"error": f"VEO任务失败: {error_details.get('message', '未知错误')}"}, status_code=500)
+                break # Exit loop
+            
+            logger.info(f"视频 {op_name} 尚未准备好。5秒后重试...")
+            time.sleep(5)
+
+    except Exception as e:
+        logger.error(f"转换Gemini视频请求时出错: {str(e)}")
+        return JSONResponse(content={"error": {"message": f"转换Gemini视频请求时出错: {str(e)}", "type": "internal_error", "code": 500}}, status_code=500)
