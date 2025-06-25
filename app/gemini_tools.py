@@ -272,42 +272,51 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                     # Success case
                     response_data = status_data['response']
                     videos = []
-                    if 'generateVideoResponse' in response_data and 'generatedSamples' in response_data['generateVideoResponse']:
-                        for i, sample in enumerate(response_data['generateVideoResponse']['generatedSamples']):
-                            video_info = sample.get('video', {})
-                            url = video_info.get('uri')
-                            if url:
-                                # 视频URL可能需要API Key才能下载
-                                download_url = f"{url}&key={api_key}"
-                                # 使用全局图片存储实例保存视频并获取URL
-                                from app.utils import download_video_to_base64
-                                mime_type, base64_data = download_video_to_base64(download_url) 
-                                url = storage.save_image(mime_type, base64_data)
-                                logger.info(f"视频的访问地址: {url}")
-                                videos.append({"url": url, "index": i})
-                    
-                    if videos:
-                        content = "视频已生成:\n\n" + "\n\n".join([f"[点击下载]({vid['url']})" for vid in videos])
-                        openai_response = {
-                            "id": f"chatcmpl-{int(time.time())}",
-                            "object": "chat.completion",
-                            "created": int(time.time()),
-                            "model": model,
-                            "choices": [{"index": 0, "message": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}],
-                            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-                        }
-                        if enable_stream:
-                            chunk_response = openai_response.copy()
-                            chunk_response["object"] = "chat.completion.chunk"
-                            chunk_response["choices"] = [{"index": 0, "delta": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}]
-                            async def generate_response():
-                                yield f"data: {json.dumps(chunk_response)}\n\n"
-                                yield "data: [DONE]\n\n"
-                            return StreamingResponse(content=generate_response(), media_type="text/event-stream")
+                    if 'generateVideoResponse' in response_data:
+                        generate_video_response = response_data['generateVideoResponse']
+                        if 'generatedSamples' in generate_video_response and generate_video_response['generatedSamples']:
+                            for i, sample in enumerate(generate_video_response['generatedSamples']):
+                                video_info = sample.get('video', {})
+                                url = video_info.get('uri')
+                                if url:
+                                    # 视频URL可能需要API Key才能下载
+                                    download_url = f"{url}&key={api_key}"
+                                    # 使用全局图片存储实例保存视频并获取URL
+                                    from app.utils import download_video_to_base64
+                                    mime_type, base64_data = download_video_to_base64(download_url)
+                                    url = storage.save_image(mime_type, base64_data)
+                                    logger.info(f"视频的访问地址: {url}")
+                                    videos.append({"url": url, "index": i})
+                        
+                        if videos:
+                            content = "视频已生成:\n\n" + "\n\n".join([f"[点击下载]({vid['url']})" for vid in videos])
+                            openai_response = {
+                                "id": f"chatcmpl-{int(time.time())}",
+                                "object": "chat.completion",
+                                "created": int(time.time()),
+                                "model": model,
+                                "choices": [{"index": 0, "message": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}],
+                                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+                            }
+                            if enable_stream:
+                                chunk_response = openai_response.copy()
+                                chunk_response["object"] = "chat.completion.chunk"
+                                chunk_response["choices"] = [{"index": 0, "delta": {"role": "assistant", "content": content.strip()}, "finish_reason": "stop"}]
+                                async def generate_response():
+                                    yield f"data: {json.dumps(chunk_response)}\n\n"
+                                    yield "data: [DONE]\n\n"
+                                return StreamingResponse(content=generate_response(), media_type="text/event-stream")
+                            else:
+                                return JSONResponse(content=openai_response)
                         else:
-                            return JSONResponse(content=openai_response)
-                    else:
-                         return JSONResponse(content={"error": "VEO任务完成但未找到视频数据"}, status_code=500)
+                            # 如果没有生成视频，检查是否有raiMediaFilteredReasons
+                            if 'raiMediaFilteredReasons' in generate_video_response and generate_video_response['raiMediaFilteredReasons']:
+                                error_message = "VEO任务完成但视频被过滤: " + generate_video_response['raiMediaFilteredReasons'][0]
+                                logger.error(error_message)
+                                return JSONResponse(content={"error": error_message}, status_code=403)
+                            else:
+                                logger.error("VEO任务完成但未找到视频数据")
+                                return JSONResponse(content={"error": "VEO任务完成但未找到视频数据"}, status_code=403)
                 elif 'error' in status_data:
                     # Error case
                     error_details = status_data.get('error', {})
