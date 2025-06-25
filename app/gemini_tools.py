@@ -284,7 +284,7 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                                 mime_type, base64_data = download_video_to_base64(download_url) 
                                 url = storage.save_image(mime_type, base64_data)
                                 logger.info(f"视频的访问地址: {url}")
-                                videos.append({"url": download_url, "index": i})
+                                videos.append({"url": url, "index": i})
                     
                     if videos:
                         content = "视频已生成:\n\n" + "\n\n".join([f"[点击下载]({vid['url']})" for vid in videos])
