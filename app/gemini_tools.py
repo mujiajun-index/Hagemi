@@ -267,7 +267,7 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
             if status_data.get('done'):
                 # 计算总耗时
                 totalLatency = round(time.time() - start_time, 2)
-                logger.info(f"VEO任务已完成,总耗时{totalLatency}秒")
+                logger.info(f"VEO任务已结束,总耗时{totalLatency}秒")
                 if 'response' in status_data:
                     # Success case
                     response_data = status_data['response']
@@ -289,7 +289,7 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                                     videos.append({"url": url, "index": i})
                         
                         if videos:
-                            content = "视频已生成:\n\n" + "\n\n".join([f"[点击下载]({vid['url']})" for vid in videos])
+                            content = "视频已生成:\n\n" + "\n\n".join([f"[{vid['index']+1}.点击下载]({vid['url']})" for vid in videos])
                             openai_response = {
                                 "id": f"chatcmpl-{int(time.time())}",
                                 "object": "chat.completion",
@@ -320,8 +320,8 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                 elif 'error' in status_data:
                     # Error case
                     error_details = status_data.get('error', {})
-                    logger.error(f"VEO任务失败: {error_details}")
-                    return JSONResponse(content={"error": f"VEO任务失败: {error_details.get('message', '未知错误')}"}, status_code=500)
+                    logger.error(f"VEO任务生成失败或被拒绝生成: {error_details}")
+                    return JSONResponse(content={"error": f"VEO任务生成失败或被拒绝生成: {error_details.get('message', '未知错误')}"}, status_code=403)
                 break # Exit loop
             
             # logger.info(f"视频 {op_name} 尚未准备好。5秒后重试...")
