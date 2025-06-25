@@ -247,11 +247,13 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
             return Response(content=initial_response.content, status_code=initial_response.status_code, media_type=initial_response.headers.get('content-type'))
 
         op_data = initial_response.json()
-        logger.info(f"VEO任务已启动, 操作结果: {op_data}")
+        logger.info(f"VEO任务已启动,正在生成中...")
         op_name = op_data.get('name')
         if not op_name:
             logger.error(f"未能从响应中获取操作名称: {op_data}")
             return JSONResponse(content={"error": "未能从响应中获取操作名称"}, status_code=500)
+        # 记录任务开始时间
+        start_time = time.time()
         # Step 2: Poll for the result
         status_url = f"https://generativelanguage.googleapis.com/v1beta/{op_name}?key={api_key}"
         while True:
@@ -261,8 +263,11 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                 return Response(content=status_response.content, status_code=status_response.status_code, media_type=status_response.headers.get('content-type'))
 
             status_data = status_response.json()
-            logger.info(f"VEO任务状态检查结果: {status_data}")
+            # logger.info(f"VEO任务状态检查结果: {status_data}")
             if status_data.get('done'):
+                # 计算总耗时
+                totalLatency = round(time.time() - start_time, 2)
+                logger.info(f"VEO任务已完成,总耗时{totalLatency}秒")
                 if 'response' in status_data:
                     # Success case
                     response_data = status_data['response']
@@ -310,7 +315,7 @@ def gemini_veo_request_converter(method, headers, request_json: Dict[str, Any]):
                     return JSONResponse(content={"error": f"VEO任务失败: {error_details.get('message', '未知错误')}"}, status_code=500)
                 break # Exit loop
             
-            logger.info(f"视频 {op_name} 尚未准备好。5秒后重试...")
+            # logger.info(f"视频 {op_name} 尚未准备好。5秒后重试...")
             time.sleep(5)
 
     except Exception as e:

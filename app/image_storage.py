@@ -284,7 +284,7 @@ class TencentCloudImageStorage(ImageStorage):
 # 工厂函数，根据配置创建合适的存储实例
 def get_image_storage() -> ImageStorage:
     """根据环境变量配置创建并返回适当的图片存储实例"""
-    storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'memory').lower()
+    storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'local').lower()
     host_url = os.environ.get('HOST_URL', "http://127.0.0.1:7860")
     
     if storage_type == 'local':
