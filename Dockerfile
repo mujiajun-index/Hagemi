@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ENV GEMINI_API_KEYS=your_key_1,your_key_2,your_key_3
 ENV VERSION=1.9.8
 
-# 兼容huggingface本地保存(重新构建后依然消失)
+# 兼容huggingface本地保存限制为50GB（非持久性）磁盘空间(免费用户重新构建应用重启后数据会丢失)
 RUN mkdir -p /app/app/images && chmod -R 777 /app/app/images
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
