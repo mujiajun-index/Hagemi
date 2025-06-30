@@ -340,8 +340,8 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             extra_log_empty_response = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 204}
                             log_msg = format_log_message('INFO', "Gemini API 返回空响应", extra=extra_log_empty_response)
                             logger.info(log_msg)
-                            # 继续循环
-                            continue
+                            raise HTTPException(status_code=403, detail=msg)
+                            # 继续循环 ontinue
                         response = ChatCompletionResponse(id="chatcmpl-someid", object="chat.completion", created=1234567890, model=chat_request.model,
                                                         choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}])
                         extra_log_success = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
