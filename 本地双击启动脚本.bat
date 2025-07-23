@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo 依赖安装成功，正在启动服务...
-echo 服务将在 http://localhost:7860 上运行
+echo 服务将在 http://localhost:7860 上运行，按住 Ctrl 后鼠标左键点击链接可在浏览器中打开访问
 echo.
 echo 按 Ctrl+C 可以停止服务
 echo.
