@@ -2,6 +2,7 @@ import os
 import base64
 import uuid
 from datetime import datetime
+import time
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -40,7 +41,12 @@ class LocalImageStorage(ImageStorage):
             self.image_dir = image_dir
         # 确保目录存在
         os.makedirs(self.image_dir, exist_ok=True)
-    
+        # 从环境变量获取最大图片数量，默认为1000
+        self.max_images = int(os.environ.get('LOCAL_MAX_IMAGE_NUMBER', 1000))
+        # 从环境变量获取最大存储大小（MB），默认为1000MB
+        self.max_size_mb = int(os.environ.get('LOCAL_MAX_IMAGE_SIZE_MB', 1000))
+        self.clean_interval_seconds = int(os.environ.get('LOCAL_CLEAN_INTERVAL_SECONDS', 3600)) # 默认1小时
+        self.last_clean_time = 0
     def save_image(self, mime_type: str, base64_data: str) -> str:
         """将Base64编码的图片保存到本地文件系统
         
@@ -64,7 +70,13 @@ class LocalImageStorage(ImageStorage):
             f.write(image_data)
         
         # 返回HTTP访问地址
-        return f"{self.host_url}/images/{unique_filename}"
+        image_url = f"{self.host_url}/images/{unique_filename}"
+        # 保存图片后执行清理（冷却时间内最多执行一次）
+        current_time = time.time()
+        if current_time - self.last_clean_time > self.clean_interval_seconds:
+            self.clean_old_images()
+            self.last_clean_time = current_time
+        return image_url
 
     def get_image(self, filename: str):
         """从本地文件系统中获取图片数据
@@ -88,6 +100,47 @@ class LocalImageStorage(ImageStorage):
                 return base64_data, mime_type
         return None, None
 
+    def clean_old_images(self):
+        """根据配置清理本地存储中的旧图片"""
+        logger.info("开始自动检查清理本地图片...")
+        # 获取所有图片文件，并按修改时间排序
+        image_files = []
+        for f in os.listdir(self.image_dir):
+            file_path = os.path.join(self.image_dir, f)
+            if os.path.isfile(file_path):
+                try:
+                    timestamp = os.path.getmtime(file_path)
+                    size = os.path.getsize(file_path)
+                    image_files.append((file_path, timestamp, size))
+                except OSError as e:
+                    logger.warning(f"无法获取文件元数据 {file_path}: {e}")
+        image_files.sort(key=lambda x: x[1])  # 按修改时间升序排序
+
+        # 按数量清理
+        while len(image_files) > self.max_images:
+            if not image_files: # 避免空列表操作
+                break
+            oldest_file_path = image_files.pop(0)[0]
+            try:
+                os.remove(oldest_file_path)
+                logger.info(f"按数量清理：删除最旧图片 {oldest_file_path}, 当前总数量 {len(image_files)}个")
+            except OSError as e:
+                logger.error(f"删除文件失败 {oldest_file_path}: {e}")
+
+        # 按大小清理
+        current_size_mb = sum([x[2] for x in image_files]) / (1024 * 1024)
+        while current_size_mb > self.max_size_mb and len(image_files) > 0:
+            if not image_files: # 避免空列表操作
+                break
+            oldest_file_info = image_files.pop(0)
+            oldest_file_path = oldest_file_info[0]
+            oldest_file_size = oldest_file_info[2]
+            try:
+                os.remove(oldest_file_path)
+                current_size_mb -= oldest_file_size / (1024 * 1024)
+                logger.info(f"按大小清理：删除最旧图片 {oldest_file_path}, 当前总大小 {current_size_mb:.2f}MB")
+            except OSError as e:
+                logger.error(f"删除文件失败 {oldest_file_path}: {e}")
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
 from qiniu import Auth, put_data
 
