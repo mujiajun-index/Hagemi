@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --background-color: #f4f7f9;
+            --card-background: #ffffff;
+            --text-color: #333;
+            --label-color: #555;
+            --border-color: #e0e0e0;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 2em;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background-color: var(--card-background);
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 1.5em;
+        }
+        .form-group {
+            margin-bottom: 1.5em;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5em;
+            color: var(--label-color);
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 0.8em;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 0.9em 1.5em;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        .button-group {
+            display: flex;
+            gap: 1em;
+            margin-top: 2em;
+        }
+        .logout-btn {
+            background-color: #e74c3c;
+        }
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+        .category-card {
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1.5em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: box-shadow 0.3s;
+        }
+        .category-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .category-header {
+            padding: 1em 1.5em;
+            background-color: #f9fafb;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .category-content {
+            padding: 1.5em;
+            display: none; /* Default to hidden */
+        }
+        .category-content.show {
+            display: block;
+        }
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+        .toggle-icon.rotate {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>系统设置</h1>
+        <form id="settings-form">
+            <div class="button-group">
+                <button type="submit">保存设置</button>
+                <button type="button" class="logout-btn" onclick="logout()">退出登录</button>
+            </div>
+        </form>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = sessionStorage.getItem('admin-token');
+            if (!token) {
+                alert('请先登录');
+                window.location.href = '/';
+                return;
+            }
+
+            fetch('/admin/env', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+                .then(response => {
+                    if (response.status === 401) {
+                        alert('会话已过期，请重新登录');
+                        window.location.href = '/';
+                        throw new Error('Unauthorized');
+                    }
+                    if (!response.ok) {
+                        throw new Error('网络响应错误');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const form = document.getElementById('settings-form');
+                    const buttonGroup = form.querySelector('.button-group');
+
+                    for (const category in data) {
+                        const categoryCard = document.createElement('div');
+                        categoryCard.className = 'category-card';
+
+                        const categoryHeader = document.createElement('div');
+                        categoryHeader.className = 'category-header';
+                        categoryHeader.innerHTML = `<span>${category}</span><span class="toggle-icon">▶</span>`;
+                        
+                        const categoryContent = document.createElement('div');
+                        categoryContent.className = 'category-content';
+
+                        const settings = data[category];
+                        for (const key in settings) {
+                            const setting = settings[key];
+                            const formGroup = document.createElement('div');
+                            formGroup.className = 'form-group';
+
+                            const label = document.createElement('label');
+                            label.htmlFor = key;
+                            label.textContent = setting.label;
+
+                            const input = document.createElement('input');
+                            input.type = setting.type || 'text';
+                            input.id = key;
+                            input.name = key;
+                            input.value = setting.value;
+
+                            formGroup.appendChild(label);
+                            formGroup.appendChild(input);
+                            categoryContent.appendChild(formGroup);
+                        }
+
+                        categoryCard.appendChild(categoryHeader);
+                        categoryCard.appendChild(categoryContent);
+                        form.insertBefore(categoryCard, buttonGroup);
+
+                        categoryHeader.addEventListener('click', () => {
+                            categoryContent.classList.toggle('show');
+                            const icon = categoryHeader.querySelector('.toggle-icon');
+                            icon.classList.toggle('rotate');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('获取配置失败:', error);
+                    alert('加载配置信息失败，请检查网络或联系管理员。');
+                    // 跳转到首页
+                    // window.location.href = '/';
+                });
+
+            document.getElementById('settings-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const password = prompt("为确认更改，请输入管理员密码:", "");
+                if (password === null) {
+                    return;
+                }
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+                data.password = password;
+
+                const token = sessionStorage.getItem('admin-token');
+                fetch('/admin/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json().then(result => ({ok: response.ok, result})))
+                .then(({ok, result}) => {
+                    alert(result.message || "发生未知错误");
+                    if (ok) {
+                        // 可以在这里添加刷新页面或其他操作
+                    }
+                })
+                .catch(error => {
+                    console.error('更新失败:', error);
+                    alert('更新失败，请查看浏览器控制台获取更多信息。');
+                });
+            });
+        });
+
+        function logout() {
+            sessionStorage.removeItem('admin-token');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
-from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
@@ -14,9 +14,17 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import sys
 import logging
 import base64
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
+from jose import JWTError, jwt
+from datetime import timedelta
+
 # 加载.env文件中的环境变量
 load_dotenv()
+
+# JWT 配置
+SECRET_KEY = os.environ.get("SECRET_KEY", "a_very_secret_key") # 强烈建议在.env中设置一个安全的密钥
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 logging.getLogger("uvicorn").disabled = True
 logging.getLogger("uvicorn.access").disabled = True
 
@@ -175,44 +183,54 @@ def list_models():
 
 # 校验密码逻辑
 async def verify_password(request: Request):
-    if not PASSWORD:
-        return True  # No password set, bypass authentication
-
-    # 获取客户端真实IP地址
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-               request.headers.get('X-Real-IP', '') or \
-               request.headers.get('CF-Connecting-IP', '') or \
-               request.client.host if request.client else "unknown_ip"
-    
-    # Attempt 1: Authorization Header
     auth_header = request.headers.get("Authorization")
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        if token == PASSWORD:
-            return True  # Authorized by header
-        else:
-            # Header was present, Bearer type, but token was wrong. This is a hard fail.
-            logger.warning(format_log_message('WARNING', f"Auth failed for IP {client_ip}: Invalid Bearer token.", 
-                                             extra={'ip': client_ip, 'reason': 'Invalid Bearer token'}))
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized: Invalid token")
+        
+        # 尝试JWT Token验证
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
+            return True # Token有效
+        except JWTError:
+            # 如果JWT验证失败，继续尝试原始的密码验证逻辑
+            pass
 
-    # Attempt 2: Authorized IP
+        # 原始密码验证
+        if token == PASSWORD:
+            return True
+
+    if not PASSWORD:
+        return True
+
+    # Authorized IP
     if client_ip in authorized_ips:
-        return True  # Authorized by IP
+        return True
+
+    # 仅在其他验证方式失败时才尝试读取body
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
 
     def verify_auth_command(text: str) -> bool:
         import re
         auth_match = re.search(r'auth\s([^\s]+)', text.lower())
         if auth_match and auth_match.group(1) == PASSWORD:
-                authorized_ips.add(client_ip)
-                logger.info(format_log_message('INFO', f"IP {client_ip} Successfully authorized through the auth command.",
-                                              extra={'ip': client_ip, 'method': 'AUTH_command'}))
-                return True
+            authorized_ips.add(client_ip)
+            logger.info(format_log_message('INFO', f"IP {client_ip} Successfully authorized through the auth command.",
+                                          extra={'ip': client_ip, 'method': 'AUTH_command'}))
+            return True
         return False
 
-    request_json = json.loads(await request.body())
-    # Attempt 3: AUTH command in request body
-    if request_json and 'messages' in request_json:
+    if body and 'messages' in body:
         messages = request_json['messages']
         if messages and isinstance(messages, list):
             last_message = messages[-1]
@@ -430,10 +448,24 @@ async def root():
                 padding: 20px;
                 line-height: 1.6;
             }}
+            .title-container {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: relative;
+                margin-bottom: 30px;
+            }}
             h1 {{
                 color: #333;
                 text-align: center;
-                margin-bottom: 30px;
+                margin: 0;
+            }}
+            .settings-btn {{
+                position: absolute;
+                right: 0;
+                cursor: pointer;
+                width: 24px;
+                height: 24px;
             }}
             .info-box {{
                 background-color: #f8f9fa;
@@ -457,7 +489,12 @@ async def root():
         </style>
     </head>
     <body>
-        <h1>🤖 Gemini API 代理服务</h1>
+        <div class="title-container">
+            <h1>🤖 Gemini API 代理服务</h1>
+            <svg class="settings-btn" onclick="goToAdmin()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.8293 10.4291C19.8293 10.3532 19.8369 10.2773 19.8521 10.2014L21.6993 8.7225C21.8833 8.57462 21.9355 8.31383 21.8326 8.10707L20.0479 4.99304C19.945 3.78628 19.6866 4.73521 19.5837 4.52845L17.6528 5.24314C17.156 4.88936 16.6173 4.59352 16.0465 4.36762L15.7663 2.28538C15.7343 2.05203 15.5275 1.875 15.2861 1.875H11.7142C11.4728 1.875 11.2659 2.05203 11.234 2.28538L10.9538 4.36762C10.383 4.59352 9.84428 4.88936 9.34753 5.24314L7.41658 4.52845C7.31373 4.73521 7.05528 3.78628 6.95243 4.99304L5.16774 8.10707C5.06489 8.31383 5.11704 8.57462 5.30102 8.7225L7.14823 10.2014C7.16343 10.2773 7.171 10.3532 7.171 10.4291C7.171 10.505 7.16343 10.5809 7.14823 10.6568L5.30102 12.1357C5.11704 12.2836 5.06489 12.5444 5.16774 12.7511L6.95243 15.8652C7.05528 16.0719 7.31373 15.123 7.41658 15.3298L9.34753 14.6151C9.84428 14.9689 10.383 15.2647 10.9538 15.4906L11.234 17.5728C11.2659 17.8062 11.4728 17.9832 11.7142 17.9832H15.2861C15.5275 17.9832 15.7343 17.8062 15.7663 17.5728L16.0465 15.4906C16.6173 15.2647 17.156 14.9689 17.6528 14.6151L19.5837 15.3298C19.6866 15.123 19.945 16.0719 20.0479 15.8652L21.8326 12.7511C21.9355 12.5444 21.8833 12.2836 21.6993 12.1357L19.8521 10.6568C19.8369 10.5809 19.8293 10.505 19.8293 10.4291ZM13.5001 13.125C11.827 13.125 10.4546 11.7526 10.4546 10.0795C10.4546 8.40641 11.827 7.03397 13.5001 7.03397C15.1732 7.03397 16.5456 8.40641 16.5456 10.0795C16.5456 11.7526 15.1732 13.125 13.5001 13.125Z"></path>
+            </svg>
+        </div>
         
         <div class="info-box">
             <h2>🟢 运行状态</h2>
@@ -474,9 +511,139 @@ async def root():
             <p class="version">v{VERSION}</p>
         </div>
     </body>
+    <script>
+        function goToAdmin() {{
+            const password = prompt("请输入管理员密码:", "");
+            if (password === null) {{
+                return;
+            }}
+
+            fetch('/admin/login', {{
+                method: 'POST',
+                headers: {{
+                    'Content-Type': 'application/json'
+                }},
+                body: JSON.stringify({{ password: password }})
+            }})
+            .then(response => {{
+                if (!response.ok) {{
+                    throw new Error('密码错误或服务器异常');
+                }}
+                return response.json();
+            }})
+            .then(data => {{
+                sessionStorage.setItem('admin-token', data.access_token);
+                window.location.href = '/admin';
+            }})
+            .catch(error => {{
+                alert(error.message);
+            }});
+        }}
+    </script>
     </html>
-    """
-    return html_content
+    """.replace("{{PASSWORD}}", PASSWORD)
+    return HTMLResponse(content=html_content)
+
+@app.get("/admin", response_class=FileResponse)
+async def admin_page(_: None = Depends(verify_password)):
+    return FileResponse("app/templates/admin.html")
+
+@app.get("/admin/env")
+async def get_env_vars(_: None = Depends(verify_password)):
+    env_vars_config = {
+        "API与访问控制": {
+            "GEMINI_API_KEYS": {"label": "Gemini API 密钥", "value": os.environ.get("GEMINI_API_KEYS", ""), "type": "password"},
+            "MAX_REQUESTS_PER_MINUTE": {"label": "每分钟最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_MINUTE", "30")},
+            "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600")},
+            "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", "")},
+            "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", "")},
+        },
+        "图片处理与存储": {
+            "HISTORY_IMAGE_SUBMIT_TYPE": {"label": "历史图片提交类型", "value": os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")},
+            "IMAGE_STORAGE_TYPE": {"label": "图片存储类型", "value": os.environ.get("IMAGE_STORAGE_TYPE", "local")},
+            "HOST_URL": {"label": "主机URL", "value": os.environ.get("HOST_URL", "")},
+            "XAI_RESPONSE_FORMAT": {"label": "X-AI响应格式", "value": os.environ.get("XAI_RESPONSE_FORMAT", "url")},
+        },
+        "本地存储设置": {
+            "IMAGE_STORAGE_DIR": {"label": "图片存储目录", "value": os.environ.get("IMAGE_STORAGE_DIR", "app/images")},
+            "MEMORY_MAX_IMAGE_NUMBER": {"label": "内存中最大图片数", "value": os.environ.get("MEMORY_MAX_IMAGE_NUMBER", "1000")},
+            "LOCAL_MAX_IMAGE_NUMBER": {"label": "本地最大图片数", "value": os.environ.get("LOCAL_MAX_IMAGE_NUMBER", "1000")},
+            "LOCAL_MAX_IMAGE_SIZE_MB": {"label": "本地最大图片大小(MB)", "value": os.environ.get("LOCAL_MAX_IMAGE_SIZE_MB", "1000")},
+            "LOCAL_CLEAN_INTERVAL_SECONDS": {"label": "本地清理间隔(秒)", "value": os.environ.get("LOCAL_CLEAN_INTERVAL_SECONDS", "3600")},
+        },
+        "腾讯云COS设置": {
+            "TENCENT_SECRET_ID": {"label": "腾讯云Secret ID", "value": os.environ.get("TENCENT_SECRET_ID", ""), "type": "password"},
+            "TENCENT_SECRET_KEY": {"label": "腾讯云Secret Key", "value": os.environ.get("TENCENT_SECRET_KEY", ""), "type": "password"},
+            "TENCENT_REGION": {"label": "腾讯云区域", "value": os.environ.get("TENCENT_REGION", "")},
+            "TENCENT_BUCKET": {"label": "腾讯云存储桶", "value": os.environ.get("TENCENT_BUCKET", "")},
+            "TENCENT_DOMAIN": {"label": "腾讯云域名", "value": os.environ.get("TENCENT_DOMAIN", "")},
+        },
+        "七牛云Kodo设置": {
+            "QINIU_ACCESS_KEY": {"label": "七牛云Access Key", "value": os.environ.get("QINIU_ACCESS_KEY", ""), "type": "password"},
+            "QINIU_SECRET_KEY": {"label": "七牛云Secret Key", "value": os.environ.get("QINIU_SECRET_KEY", ""), "type": "password"},
+            "QINIU_BUCKET_NAME": {"label": "七牛云存储空间名", "value": os.environ.get("QINIU_BUCKET_NAME", "")},
+            "QINIU_BUCKET_DOMAIN": {"label": "七牛云域名", "value": os.environ.get("QINIU_BUCKET_DOMAIN", "")},
+        }
+    }
+    return JSONResponse(content=env_vars_config)
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+@app.post("/admin/login")
+async def login_for_access_token(request: Request):
+    data = await request.json()
+    password = data.get("password")
+    if password != PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": "admin"}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+def reload_config():
+    global PASSWORD, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, key_manager, global_image_storage
+
+    MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
+    MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
+    WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
+    authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
+    
+    # 重新初始化 APIKeyManager
+    new_api_keys = os.environ.get("GEMINI_API_KEYS", "")
+    if new_api_keys != ",".join(key_manager.api_keys):
+        key_manager = APIKeyManager()
+        # 可以在这里添加重新检查 key 有效性的逻辑
+    # 重新初始化图片存储
+    global_image_storage = get_image_storage()
+
+
+@app.post("/admin/update")
+async def update_env_vars(request: Request, _: None = Depends(verify_password)):
+    data = await request.json()
+    password = data.pop("password", None)
+
+    if password != PASSWORD:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"message": "密码错误"})
+
+    for key, value in data.items():
+        os.environ[key] = value
+    
+    reload_config()
+    
+    return JSONResponse(content={"message": "设置已更新并立即生效。"})
 
 from .static_proxy import static_proxy_router
 # 注册静态文件代理路由
@@ -486,6 +653,3 @@ app.include_router(static_proxy_router)
 from .proxy import proxy_router
 # 在所有特定路由定义完成后，最后包含反向代理路由器
 app.include_router(proxy_router)
-
-
-
