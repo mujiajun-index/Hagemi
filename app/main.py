@@ -552,37 +552,66 @@ async def admin_page(_: None = Depends(verify_password)):
 async def get_env_vars(_: None = Depends(verify_password)):
     env_vars_config = {
         "API与访问控制": {
-            "GEMINI_API_KEYS": {"label": "Gemini API 密钥", "value": os.environ.get("GEMINI_API_KEYS", ""), "type": "password"},
-            "MAX_REQUESTS_PER_MINUTE": {"label": "每分钟最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_MINUTE", "30")},
-            "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600")},
-            "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", "")},
-            "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", "")},
+            "GEMINI_API_KEYS": {"label": "Gemini API 密钥", "value": os.environ.get("GEMINI_API_KEYS", ""), "type": "password", "description": "您的Gemini API密钥，多个请用逗号隔开。"},
+            "MAX_REQUESTS_PER_MINUTE": {"label": "每分钟最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"), "description": "单个IP每分钟允许的最大请求次数。"},
+            "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"), "description": "单个IP每天允许的最大请求次数。"},
+            "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
+            "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
-            "HISTORY_IMAGE_SUBMIT_TYPE": {"label": "历史图片提交类型", "value": os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")},
-            "IMAGE_STORAGE_TYPE": {"label": "图片存储类型", "value": os.environ.get("IMAGE_STORAGE_TYPE", "local")},
-            "HOST_URL": {"label": "主机URL", "value": os.environ.get("HOST_URL", "")},
-            "XAI_RESPONSE_FORMAT": {"label": "X-AI响应格式", "value": os.environ.get("XAI_RESPONSE_FORMAT", "url")},
+            "HISTORY_IMAGE_SUBMIT_TYPE": {
+                "label": "历史图片提交类型",
+                "value": os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last"),
+                "type": "radio",
+                "options": [
+                    {"value": "last", "description": "只提交最近消息中的图片（推荐）"},
+                    {"value": "all", "description": "提交上下文所有图片"}
+                ],
+                "description": "控制在生成图片时如何处理历史对话中的图片。"
+            },
+            "IMAGE_STORAGE_TYPE": {
+                "label": "图片存储类型",
+                "value": os.environ.get("IMAGE_STORAGE_TYPE", "local"),
+                "type": "radio",
+                "options": [
+                    {"value": "local", "description": "存储在服务器本地磁盘"},
+                    {"value": "memory", "description": "存储在内存中（重启后丢失）"},
+                    {"value": "qiniu", "description": "存储在七牛云Kodo"},
+                    {"value": "tencent", "description": "存储在腾讯云COS"}
+                ],
+                "description": "选择生成的图片的存储方式。"
+            },
+            "HOST_URL": {"label": "主机URL", "value": os.environ.get("HOST_URL", ""), "description": "当前服务的公开访问地址，用于生成图片URL。"},
+            "XAI_RESPONSE_FORMAT": {
+                "label": "X-AI响应格式",
+                "value": os.environ.get("XAI_RESPONSE_FORMAT", "url"),
+                "type": "radio",
+                "options": [
+                    {"value": "url", "description": "返回X-AI官方图片URL"},
+                    {"value": "b64_json", "description": "返回base64编码的图片并按上述存储类型处理"}
+                ],
+                "description": "设置X-AI图片生成接口的返回格式。"
+            },
         },
         "本地存储设置": {
-            "IMAGE_STORAGE_DIR": {"label": "图片存储目录", "value": os.environ.get("IMAGE_STORAGE_DIR", "app/images")},
-            "MEMORY_MAX_IMAGE_NUMBER": {"label": "内存中最大图片数", "value": os.environ.get("MEMORY_MAX_IMAGE_NUMBER", "1000")},
-            "LOCAL_MAX_IMAGE_NUMBER": {"label": "本地最大图片数", "value": os.environ.get("LOCAL_MAX_IMAGE_NUMBER", "1000")},
-            "LOCAL_MAX_IMAGE_SIZE_MB": {"label": "本地最大图片大小(MB)", "value": os.environ.get("LOCAL_MAX_IMAGE_SIZE_MB", "1000")},
-            "LOCAL_CLEAN_INTERVAL_SECONDS": {"label": "本地清理间隔(秒)", "value": os.environ.get("LOCAL_CLEAN_INTERVAL_SECONDS", "3600")},
+            "IMAGE_STORAGE_DIR": {"label": "图片存储目录", "value": os.environ.get("IMAGE_STORAGE_DIR", "app/images"), "description": "当存储类型为local时，图片保存的目录。"},
+            "MEMORY_MAX_IMAGE_NUMBER": {"label": "内存中最大图片数", "value": os.environ.get("MEMORY_MAX_IMAGE_NUMBER", "1000"), "description": "当存储类型为memory时，内存中保留的最大图片数量。"},
+            "LOCAL_MAX_IMAGE_NUMBER": {"label": "本地最大图片数", "value": os.environ.get("LOCAL_MAX_IMAGE_NUMBER", "1000"), "description": "当存储类型为local时，本地保留的最大图片数量。"},
+            "LOCAL_MAX_IMAGE_SIZE_MB": {"label": "本地最大图片大小(MB)", "value": os.environ.get("LOCAL_MAX_IMAGE_SIZE_MB", "1000"), "description": "当存储类型为local时，本地图片文件夹的最大体积。"},
+            "LOCAL_CLEAN_INTERVAL_SECONDS": {"label": "本地清理间隔(秒)", "value": os.environ.get("LOCAL_CLEAN_INTERVAL_SECONDS", "3600"), "description": "当存储类型为local时，自动清理任务的运行间隔。"},
         },
         "腾讯云COS设置": {
-            "TENCENT_SECRET_ID": {"label": "腾讯云Secret ID", "value": os.environ.get("TENCENT_SECRET_ID", ""), "type": "password"},
-            "TENCENT_SECRET_KEY": {"label": "腾讯云Secret Key", "value": os.environ.get("TENCENT_SECRET_KEY", ""), "type": "password"},
-            "TENCENT_REGION": {"label": "腾讯云区域", "value": os.environ.get("TENCENT_REGION", "")},
-            "TENCENT_BUCKET": {"label": "腾讯云存储桶", "value": os.environ.get("TENCENT_BUCKET", "")},
-            "TENCENT_DOMAIN": {"label": "腾讯云域名", "value": os.environ.get("TENCENT_DOMAIN", "")},
+            "TENCENT_SECRET_ID": {"label": "腾讯云Secret ID", "value": os.environ.get("TENCENT_SECRET_ID", ""), "type": "password", "description": "腾讯云API密钥ID。"},
+            "TENCENT_SECRET_KEY": {"label": "腾讯云Secret Key", "value": os.environ.get("TENCENT_SECRET_KEY", ""), "type": "password", "description": "腾讯云API密钥Key。"},
+            "TENCENT_REGION": {"label": "腾讯云区域", "value": os.environ.get("TENCENT_REGION", ""), "description": "腾讯云COS存储桶所在的区域。"},
+            "TENCENT_BUCKET": {"label": "腾讯云存储桶", "value": os.environ.get("TENCENT_BUCKET", ""), "description": "用于存储图片的腾讯云COS存储桶名称。"},
+            "TENCENT_DOMAIN": {"label": "腾讯云域名", "value": os.environ.get("TENCENT_DOMAIN", ""), "description": "该存储桶对应的访问域名。"},
         },
         "七牛云Kodo设置": {
-            "QINIU_ACCESS_KEY": {"label": "七牛云Access Key", "value": os.environ.get("QINIU_ACCESS_KEY", ""), "type": "password"},
-            "QINIU_SECRET_KEY": {"label": "七牛云Secret Key", "value": os.environ.get("QINIU_SECRET_KEY", ""), "type": "password"},
-            "QINIU_BUCKET_NAME": {"label": "七牛云存储空间名", "value": os.environ.get("QINIU_BUCKET_NAME", "")},
-            "QINIU_BUCKET_DOMAIN": {"label": "七牛云域名", "value": os.environ.get("QINIU_BUCKET_DOMAIN", "")},
+            "QINIU_ACCESS_KEY": {"label": "七牛云Access Key", "value": os.environ.get("QINIU_ACCESS_KEY", ""), "type": "password", "description": "七牛云API访问密钥(AK)。"},
+            "QINIU_SECRET_KEY": {"label": "七牛云Secret Key", "value": os.environ.get("QINIU_SECRET_KEY", ""), "type": "password", "description": "七牛云API私有密钥(SK)。"},
+            "QINIU_BUCKET_NAME": {"label": "七牛云存储空间名", "value": os.environ.get("QINIU_BUCKET_NAME", ""), "description": "用于存储图片的七牛云存储空间名称。"},
+            "QINIU_BUCKET_DOMAIN": {"label": "七牛云域名", "value": os.environ.get("QINIU_BUCKET_DOMAIN", ""), "description": "该存储空间对应的访问域名。"},
         }
     }
     return JSONResponse(content=env_vars_config)

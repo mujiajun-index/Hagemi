@@ -115,6 +115,40 @@
         .toggle-icon.rotate {
             transform: rotate(90deg);
         }
+        .save-group-btn-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 1.5em;
+        }
+        .save-group-btn {
+            width: auto;
+            padding: 0.6em 1.2em;
+            font-size: 0.9em;
+        }
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1em;
+            margin-top: 0.5em;
+        }
+        .radio-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .radio-label input {
+            width: auto;
+            margin-right: 0.5em;
+        }
+        .setting-description {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 0.4em;
+            margin-bottom: 0;
+        }
+        .radio-label .setting-description {
+            margin-left: 0.5em;
+        }
     </style>
 </head>
 <body>
@@ -122,7 +156,6 @@
         <h1>系统设置</h1>
         <form id="settings-form">
             <div class="button-group">
-                <button type="submit">保存设置</button>
                 <button type="button" class="logout-btn" onclick="logout()">退出登录</button>
             </div>
         </form>
@@ -177,16 +210,68 @@
                             label.htmlFor = key;
                             label.textContent = setting.label;
 
-                            const input = document.createElement('input');
-                            input.type = setting.type || 'text';
-                            input.id = key;
-                            input.name = key;
-                            input.value = setting.value;
-
                             formGroup.appendChild(label);
-                            formGroup.appendChild(input);
+
+                            if (setting.description && !(setting.type === 'radio' && setting.options)) {
+                                const description = document.createElement('p');
+                                description.className = 'setting-description';
+                                description.textContent = setting.description;
+                                formGroup.appendChild(description);
+                            }
+
+                            if (setting.type === 'radio' && setting.options) {
+                                const radioGroup = document.createElement('div');
+                                radioGroup.className = 'radio-group';
+                                setting.options.forEach(option => {
+                                    const radioLabel = document.createElement('label');
+                                    radioLabel.className = 'radio-label';
+
+                                    const radioInput = document.createElement('input');
+                                    radioInput.type = 'radio';
+                                    radioInput.name = key;
+                                    radioInput.value = option.value;
+                                    if (setting.value === option.value) {
+                                        radioInput.checked = true;
+                                    }
+
+                                    radioLabel.appendChild(radioInput);
+                                    radioLabel.appendChild(document.createTextNode(option.value));
+                                    
+                                    if(option.description) {
+                                        const descSpan = document.createElement('span');
+                                        descSpan.className = 'setting-description';
+                                        descSpan.textContent = `(${option.description})`;
+                                        radioLabel.appendChild(descSpan);
+                                    }
+
+                                    radioGroup.appendChild(radioLabel);
+                                });
+                                formGroup.appendChild(radioGroup);
+                            } else {
+                                const input = document.createElement('input');
+                                input.type = setting.type || 'text';
+                                input.id = key;
+                                input.name = key;
+                                input.value = setting.value;
+                                formGroup.appendChild(input);
+                            }
+                            
                             categoryContent.appendChild(formGroup);
                         }
+
+                        const buttonContainer = document.createElement('div');
+                        buttonContainer.className = 'save-group-btn-container';
+
+                        const saveButton = document.createElement('button');
+                        saveButton.type = 'button';
+                        saveButton.textContent = '保存设置';
+                        saveButton.className = 'save-group-btn';
+                        saveButton.addEventListener('click', () => {
+                            saveGroupSettings(categoryContent);
+                        });
+                        
+                        buttonContainer.appendChild(saveButton);
+                        categoryContent.appendChild(buttonContainer);
 
                         categoryCard.appendChild(categoryHeader);
                         categoryCard.appendChild(categoryContent);
@@ -206,40 +291,50 @@
                     // window.location.href = '/';
                 });
 
-            document.getElementById('settings-form').addEventListener('submit', function(event) {
-                event.preventDefault();
-
-                const password = prompt("为确认更改，请输入管理员密码:", "");
-                if (password === null) {
-                    return;
-                }
-
-                const formData = new FormData(this);
-                const data = Object.fromEntries(formData.entries());
-                data.password = password;
-
-                const token = sessionStorage.getItem('admin-token');
-                fetch('/admin/update', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: JSON.stringify(data)
-                })
-                .then(response => response.json().then(result => ({ok: response.ok, result})))
-                .then(({ok, result}) => {
-                    alert(result.message || "发生未知错误");
-                    if (ok) {
-                        // 可以在这里添加刷新页面或其他操作
-                    }
-                })
-                .catch(error => {
-                    console.error('更新失败:', error);
-                    alert('更新失败，请查看浏览器控制台获取更多信息。');
-                });
-            });
+            // The global submit listener is no longer needed as we have per-group save buttons.
+            // document.getElementById('settings-form').addEventListener('submit', ...);
         });
+
+        function saveGroupSettings(groupContentElement) {
+            const password = prompt("为确认更改，请输入管理员密码:", "");
+            if (password === null) {
+                return;
+            }
+
+            const inputs = groupContentElement.querySelectorAll('input, select');
+            const data = {};
+            inputs.forEach(input => {
+                if (input.type === 'radio') {
+                    if (input.checked) {
+                        data[input.name] = input.value;
+                    }
+                } else {
+                    data[input.name] = input.value;
+                }
+            });
+            data.password = password;
+
+            const token = sessionStorage.getItem('admin-token');
+            fetch('/admin/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json().then(result => ({ok: response.ok, result})))
+            .then(({ok, result}) => {
+                alert(result.message || "发生未知错误");
+                if (ok) {
+                    // Optionally, you can provide feedback that the group was saved.
+                }
+            })
+            .catch(error => {
+                console.error('更新失败:', error);
+                alert('更新失败，请查看浏览器控制台获取更多信息。');
+            });
+        }
 
         function logout() {
             sessionStorage.removeItem('admin-token');
