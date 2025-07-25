@@ -149,12 +149,65 @@
         .radio-label .setting-description {
             margin-left: 0.5em;
         }
+       #api-mappings-table {
+           width: 100%;
+           border-collapse: collapse;
+           margin-top: 1em;
+       }
+       #api-mappings-table th, #api-mappings-table td {
+           border: 1px solid var(--border-color);
+           padding: 0.8em;
+           text-align: left;
+       }
+       #api-mappings-table th {
+           background-color: #f9fafb;
+       }
+       .action-btn {
+           background: none;
+           border: none;
+           cursor: pointer;
+           padding: 5px;
+           font-size: 1.2em;
+       }
+       .edit-btn { color: #4a90e2; }
+       .delete-btn { color: #e74c3c; }
+       .add-btn {
+           width: auto;
+           padding: 0.6em 1.2em;
+           font-size: 0.9em;
+           margin-top: 1em;
+       }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>系统设置</h1>
         <form id="settings-form">
+           <div class="category-card">
+              <div class="category-header">
+                  <span>API 代理路由映射</span>
+                  <span class="toggle-icon">▶</span>
+              </div>
+              <div class="category-content" id="api-mappings-content">
+                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
+                      <p><strong>功能描述:</strong> 此功能允许您将特定的 API 请求前缀代理到不同的目标地址。例如，您可以将所有发往 <code>/openai</code> 的请求转发到 <code>https://api.openai.com</code>。</p>
+                      <p><strong>使用示例:</strong> 直接访问本项目地址 <code>http://localhost:7860/openai/v1/chat/completions</code> 即可将请求代理到 <code>https://api.openai.com/v1/chat/completions</code></p>
+                  </div>
+                  <table id="api-mappings-table">
+                      <thead>
+                          <tr>
+                              <th>请求前缀</th>
+                              <th>目标地址</th>
+                              <th>操作</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <!-- Mappings will be loaded here -->
+                      </tbody>
+                  </table>
+                  <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
+              </div>
+          </div>
             <div class="button-group">
                 <button type="button" class="logout-btn" onclick="logout()">退出登录</button>
             </div>
@@ -287,13 +340,106 @@
                 .catch(error => {
                     console.error('获取配置失败:', error);
                     alert('加载配置信息失败，请检查网络或联系管理员。');
-                    // 跳转到首页
-                    // window.location.href = '/';
                 });
+           
+           loadApiMappings();
 
-            // The global submit listener is no longer needed as we have per-group save buttons.
-            // document.getElementById('settings-form').addEventListener('submit', ...);
+           document.querySelector('#api-mappings-content').parentElement.querySelector('.category-header').addEventListener('click', function() {
+               this.nextElementSibling.classList.toggle('show');
+               this.querySelector('.toggle-icon').classList.toggle('rotate');
+           });
         });
+       
+       const token = sessionStorage.getItem('admin-token');
+
+       function loadApiMappings() {
+           fetch('/admin/api_mappings', {
+               headers: { 'Authorization': 'Bearer ' + token }
+           })
+           .then(response => response.json())
+           .then(data => {
+               const tbody = document.querySelector('#api-mappings-table tbody');
+               tbody.innerHTML = '';
+               for (const prefix in data) {
+                   const row = `
+                       <tr>
+                           <td>${prefix}</td>
+                           <td>${data[prefix]}</td>
+                           <td>
+                               <button class="action-btn edit-btn" onclick="editApiMapping('${prefix}', '${data[prefix]}')">✏️</button>
+                               <button class="action-btn delete-btn" onclick="deleteApiMapping('${prefix}')">🗑️</button>
+                           </td>
+                       </tr>
+                   `;
+                   tbody.innerHTML += row;
+               }
+           });
+       }
+
+       function addApiMapping() {
+           const prefix = prompt("请输入新的请求前缀 (例如 /openai):");
+           if (!prefix) return;
+           const target_url = prompt(`请输入 ${prefix} 的目标地址:`);
+           if (!target_url) return;
+
+           fetch('/admin/api_mappings', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Authorization': 'Bearer ' + token
+               },
+               body: JSON.stringify({ prefix, target_url })
+           })
+           .then(handleApiResponse)
+           .then(loadApiMappings);
+       }
+
+       function editApiMapping(oldPrefix, oldUrl) {
+           const newPrefix = prompt("请输入请求前缀:", oldPrefix);
+           if (!newPrefix) return;
+           const newUrl = prompt("请输入目标地址:", oldUrl);
+           if (!newUrl) return;
+
+           fetch('/admin/api_mappings', {
+               method: 'PUT',
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Authorization': 'Bearer ' + token
+               },
+               body: JSON.stringify({
+                   old_prefix: oldPrefix,
+                   new_prefix: newPrefix,
+                   target_url: newUrl
+               })
+           })
+           .then(handleApiResponse)
+           .then(loadApiMappings);
+       }
+
+       function deleteApiMapping(prefix) {
+           if (!confirm(`确定要删除映射 ${prefix} 吗?`)) return;
+           
+           // 从第二个字符开始，以移除开头的'/'
+           const encodedPrefix = encodeURIComponent(prefix.substring(1));
+
+           fetch(`/admin/api_mappings/${encodedPrefix}`, {
+               method: 'DELETE',
+               headers: { 'Authorization': 'Bearer ' + token }
+           })
+           .then(handleApiResponse)
+           .then(loadApiMappings);
+       }
+
+       function handleApiResponse(response) {
+           return response.json().then(result => {
+               if (!response.ok) {
+                   alert(`错误: ${result.detail || '未知错误'}`);
+                   throw new Error(result.detail);
+               }
+               alert(result.message || '操作成功');
+               return result;
+           });
+       }
 
         function saveGroupSettings(groupContentElement) {
             const password = prompt("为确认更改，请输入管理员密码:", "");

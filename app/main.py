@@ -57,6 +57,8 @@ sys.excepthook = handle_exception
 
 app = FastAPI()
 
+from .config_manager import load_api_mappings, save_api_mappings, get_api_mappings
+
 # 挂载静态文件目录
 app.mount("/images", StaticFiles(directory="app/images"), name="images")
 
@@ -156,6 +158,7 @@ async def check_keys():
 
 @app.on_event("startup")
 async def startup_event():
+    load_api_mappings()
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
     logger.info(log_msg)
     available_keys = await check_keys()
@@ -673,12 +676,65 @@ async def update_env_vars(request: Request, _: None = Depends(verify_password)):
     reload_config()
     
     return JSONResponse(content={"message": "设置已更新并立即生效。"})
+# API 映射管理接口
+@app.get("/admin/api_mappings", dependencies=[Depends(verify_password)])
+async def get_api_mappings_endpoint():
+    return JSONResponse(content=get_api_mappings())
 
+@app.post("/admin/api_mappings", dependencies=[Depends(verify_password)])
+async def create_api_mapping(payload: dict = Body(...)):
+    mappings = get_api_mappings()
+    prefix = payload.get("prefix")
+    target_url = payload.get("target_url")
+    if not prefix or not target_url:
+        raise HTTPException(status_code=400, detail="前缀和目标URL不能为空")
+    if prefix in mappings:
+        raise HTTPException(status_code=400, detail="此前缀已存在")
+    mappings[prefix] = target_url
+    save_api_mappings()
+    return JSONResponse(content={"message": "API映射已创建"}, status_code=201)
+
+@app.put("/admin/api_mappings", dependencies=[Depends(verify_password)])
+async def update_api_mapping(payload: dict = Body(...)):
+    mappings = get_api_mappings()
+    old_prefix = payload.get("old_prefix")
+    new_prefix = payload.get("new_prefix")
+    target_url = payload.get("target_url")
+
+    if not old_prefix or not new_prefix or not target_url:
+        raise HTTPException(status_code=400, detail="请求参数不完整")
+
+    if old_prefix not in mappings:
+        raise HTTPException(status_code=404, detail=f"未找到旧前缀: {old_prefix}")
+
+    # 如果前缀被修改，且新前缀已存在
+    if old_prefix != new_prefix and new_prefix in mappings:
+        raise HTTPException(status_code=400, detail=f"新前缀 {new_prefix} 已存在")
+
+    # 先删除旧的
+    del mappings[old_prefix]
+    # 添加新的
+    mappings[new_prefix] = target_url
+    
+    save_api_mappings()
+    return JSONResponse(content={"message": "API映射已成功更新"})
+
+@app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_password)])
+async def delete_api_mapping(prefix: str):
+    mappings = get_api_mappings()
+    original_prefix = "/" + prefix
+    if original_prefix not in mappings:
+        raise HTTPException(status_code=404, detail=f"未找到此前缀: {original_prefix}")
+    del mappings[original_prefix]
+    save_api_mappings()
+    return JSONResponse(content={"message": "API映射已删除"})
+
+# --- 路由注册 ---
+from .proxy import proxy_router
 from .static_proxy import static_proxy_router
+
 # 注册静态文件代理路由
 app.include_router(static_proxy_router)
 
-# 导入反向代理路由器
-from .proxy import proxy_router
 # 在所有特定路由定义完成后，最后包含反向代理路由器
 app.include_router(proxy_router)

@@ -8,25 +8,7 @@ import json
 from .xai_tools import xai_image_request_converter
 from .gemini_tools import gemini_image_request_converter, gemini_veo_request_converter
 logger = logging.getLogger('my_logger')
-# 定义 API 映射
-api_mapping = {
-    '/discord': 'https://discord.com/api',
-    '/telegram': 'https://api.telegram.org',
-    '/openai': 'https://api.openai.com',
-    '/claude': 'https://api.anthropic.com',
-    '/gemini': 'https://generativelanguage.googleapis.com',
-    '/meta': 'https://www.meta.ai/api',
-    '/groq': 'https://api.groq.com/openai',
-    '/xai': 'https://api.x.ai',
-    '/cohere': 'https://api.cohere.ai',
-    '/huggingface': 'https://api-inference.huggingface.co',
-    '/together': 'https://api.together.xyz',
-    '/novita': 'https://api.novita.ai',
-    '/portkey': 'https://api.portkey.ai',
-    '/fireworks': 'https://api.fireworks.ai',
-    '/openrouter': 'https://openrouter.ai/api',
-    '/ashesb': 'https://newapi.ashesb.com'
-}
+from .config_manager import get_api_mappings
 
 proxy_router = APIRouter()
 
@@ -35,10 +17,11 @@ async def proxy_request(full_path: str, request: Request):
     """
     通用反向代理路由
     """
+    api_mappings = get_api_mappings()
     # 查找匹配的 API 前缀
     matched_prefix = None
     rest_of_path = None
-    for prefix, target_base_url in api_mapping.items():
+    for prefix, target_base_url in api_mappings.items():
         # 检查是否以前缀开头，需要考虑两种情况：
         # 1. 直接匹配前缀（如 /xai/v1...）
         # 2. 匹配不带开头斜杠的前缀（如 xai/v1...）
@@ -56,7 +39,7 @@ async def proxy_request(full_path: str, request: Request):
         # 如果没有匹配的前缀，返回 404
         return JSONResponse(content={"detail": "Not Found"}, status_code=404)
 
-    target_base_url = api_mapping[matched_prefix]
+    target_base_url = api_mappings[matched_prefix]
     # 确保目标基础 URL 以斜杠结尾，并且剩余路径以斜杠开头，以便正确拼接
     target_url = f"{target_base_url.rstrip('/')}/{rest_of_path.lstrip('/')}"
     datetimeStr = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

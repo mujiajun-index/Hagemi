@@ -1,0 +1,18 @@
+{
+    "/discord": "https://discord.com/api",
+    "/telegram": "https://api.telegram.org",
+    "/openai": "https://api.openai.com",
+    "/claude": "https://api.anthropic.com",
+    "/meta": "https://www.meta.ai/api",
+    "/groq": "https://api.groq.com/openai",
+    "/xai": "https://api.x.ai",
+    "/cohere": "https://api.cohere.ai",
+    "/huggingface": "https://api-inference.huggingface.co",
+    "/together": "https://api.together.xyz",
+    "/novita": "https://api.novita.ai",
+    "/portkey": "https://api.portkey.ai",
+    "/fireworks": "https://api.fireworks.ai",
+    "/openrouter": "https://openrouter.ai/api",
+    "/ashesb": "https://newapi.ashesb.com",
+    "/gemini": "https://generativelanguage.googleapis.com"
+}
