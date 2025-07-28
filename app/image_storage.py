@@ -385,6 +385,29 @@ class MemoryImageStorage(ImageStorage):
         logger.warning(f"尝试从内存删除但文件不存在: {filename}")
         return False
 
+    def get_storage_details(self) -> dict:
+        """获取内存存储的使用情况详情"""
+        all_images = [img for img in self.images_array if img is not None]
+        total_images = len(all_images)
+        
+        # 计算总大小（MB）
+        # base64 字符串的长度约是原始数据的 4/3
+        total_size_bytes = sum(len(img['data']) for img in all_images)
+        # 估算原始数据大小
+        original_size_bytes = total_size_bytes * 3 / 4
+        total_size_mb = original_size_bytes / (1024 * 1024)
+
+        # 内存存储通常只限制数量，不限制总大小，但为了与前端兼容，我们可以设置一个虚拟的最大值或从配置读取
+        # 这里我们暂时不设大小限制，返回一个标识
+        max_size_mb = int(os.environ.get('MEMORY_MAX_IMAGE_SIZE_MB', 0)) # 默认为0，表示无限制
+
+        return {
+            "total_images": total_images,
+            "max_images": self.max_images,
+            "total_size_mb": round(total_size_mb, 2),
+            "max_size_mb": max_size_mb, # 0 表示无限制
+        }
+
 
 class TencentCloudImageStorage(ImageStorage):
     """将图片保存到腾讯云COS存储服务"""

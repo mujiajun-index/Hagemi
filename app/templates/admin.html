@@ -1376,6 +1376,7 @@
 
         storageTypeSelector.addEventListener('change', (event) => {
             fetchImages(1, event.target.value, currentPageSize);
+            fetchStorageDetails(event.target.value);
         });
 
 
@@ -1480,11 +1481,16 @@
         });
        function fetchStorageDetails(storageType) {
            const container = document.getElementById('storage-details-container');
-           if (storageType !== 'local') {
+           const sizeProgressContainer = document.getElementById('image-size-progress').parentElement;
+           const sizeText = document.getElementById('image-size-text');
+
+           // 只有本地和内存存储显示详情
+           if (storageType === 'local' || storageType === 'memory') {
+               container.style.display = 'block';
+           } else {
                container.style.display = 'none';
                return;
            }
-           container.style.display = 'block';
 
            fetch(`/admin/storage_details?storage_type=${storageType}`, {
                headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}` }
@@ -1495,18 +1501,25 @@
                    // 更新图片数量进度条
                    const countProgress = document.getElementById('image-count-progress');
                    const countText = document.getElementById('image-count-text');
-                   const countPercent = (data.total_images / data.max_images) * 100;
+                   const countPercent = data.max_images > 0 ? (data.total_images / data.max_images) * 100 : 0;
                    countProgress.style.width = `${countPercent}%`;
                    countProgress.textContent = `${Math.round(countPercent)}%`;
                    countText.textContent = `图片数量: ${data.total_images} / ${data.max_images}`;
 
                    // 更新存储大小进度条
                    const sizeProgress = document.getElementById('image-size-progress');
-                   const sizeText = document.getElementById('image-size-text');
-                   const sizePercent = (data.total_size_mb / data.max_size_mb) * 100;
-                   sizeProgress.style.width = `${sizePercent}%`;
-                   sizeProgress.textContent = `${Math.round(sizePercent)}%`;
-                   sizeText.textContent = `存储空间: ${data.total_size_mb}MB / ${data.max_size_mb}MB`;
+                   if (data.max_size_mb > 0) {
+                       sizeProgressContainer.style.display = 'block';
+                       sizeText.style.display = 'block';
+                       const sizePercent = (data.total_size_mb / data.max_size_mb) * 100;
+                       sizeProgress.style.width = `${sizePercent}%`;
+                       sizeProgress.textContent = `${Math.round(sizePercent)}%`;
+                       sizeText.textContent = `存储空间: ${data.total_size_mb}MB / ${data.max_size_mb}MB`;
+                   } else {
+                       // 如果max_size_mb为0或未定义，则隐藏大小进度条
+                       sizeProgressContainer.style.display = 'none';
+                       sizeText.textContent = `已用空间: ${data.total_size_mb}MB (无大小限制)`;
+                   }
                }
            })
            .catch(error => console.error('Error fetching storage details:', error));
