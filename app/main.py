@@ -777,6 +777,19 @@ async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
         logger.error(f"批量删除图片失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/admin/storage_details", dependencies=[Depends(verify_password)])
+async def get_storage_details(storage_type: str = 'local'):
+    try:
+        storage = get_image_storage(storage_type)
+        if hasattr(storage, 'get_storage_details'):
+            details = storage.get_storage_details()
+            return JSONResponse(content=details)
+        else:
+            raise HTTPException(status_code=400, detail="该存储类型不支持获取存储详情")
+    except Exception as e:
+        logger.error(f"获取存储详情时发生错误: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- 路由注册 ---
 from .proxy import proxy_router
 from .static_proxy import static_proxy_router

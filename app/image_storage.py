@@ -195,6 +195,20 @@ class LocalImageStorage(ImageStorage):
                 return False
         logger.warning(f"尝试删除但文件不存在: {filename}")
         return False
+
+    def get_storage_details(self) -> dict:
+        """获取本地存储的使用情况详情"""
+        image_files = [f for f in os.listdir(self.image_dir) if os.path.isfile(os.path.join(self.image_dir, f))]
+        total_images = len(image_files)
+        total_size_bytes = sum(os.path.getsize(os.path.join(self.image_dir, f)) for f in image_files)
+        total_size_mb = total_size_bytes / (1024 * 1024)
+
+        return {
+            "total_images": total_images,
+            "max_images": self.max_images,
+            "total_size_mb": round(total_size_mb, 2),
+            "max_size_mb": self.max_size_mb,
+        }
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
 from qiniu import Auth, put_data
 
