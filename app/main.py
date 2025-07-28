@@ -729,6 +729,24 @@ async def delete_api_mapping(prefix: str):
     save_api_mappings()
     return JSONResponse(content={"message": "API映射已删除"})
 
+@app.post("/admin/check_gemini_key", dependencies=[Depends(verify_password)])
+async def check_gemini_key(payload: dict = Body(...)):
+    api_key = payload.get("key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    try:
+        is_valid = await test_api_key(api_key)
+        if is_valid:
+            return JSONResponse(content={"valid": True, "message": "API 密钥有效"})
+        else:
+            # 即使密钥无效，也返回200，但在响应体中指明状态
+            return JSONResponse(content={"valid": False, "message": "API 密钥无效或已过期"})
+    except Exception as e:
+        # 发生异常时返回500
+        logger.error(f"检查密钥时发生未知错误: {e}")
+        return JSONResponse(status_code=500, content={"valid": False, "message": f"检查密钥时发生内部错误: {str(e)}"})
+
 # --- 路由注册 ---
 from .proxy import proxy_router
 from .static_proxy import static_proxy_router

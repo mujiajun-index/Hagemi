@@ -172,11 +172,23 @@
        }
        .edit-btn { color: #4a90e2; }
        .delete-btn { color: #e74c3c; }
+       .check-btn { color: #3498db; }
+       .key-status-text {
+           font-size: 0.85em;
+           margin-top: 5px;
+           display: inline-block;
+       }
        .add-btn {
            width: auto;
            padding: 0.6em 1.2em;
            font-size: 0.9em;
            margin-top: 1em;
+       }
+       .bulk-action-btn {
+           background-color: #2980b9;
+       }
+       .bulk-action-btn:hover {
+           background-color: #3498db;
        }
        /* Modal Styles */
        .modal {
@@ -285,9 +297,10 @@
                   <table id="api-mappings-table">
                       <thead>
                           <tr>
+                              <th style="width: 10%;">序号</th>
                               <th>请求前缀</th>
                               <th>目标地址</th>
-                              <th>操作</th>
+                              <th style="width: 20%;">操作</th>
                           </tr>
                       </thead>
                       <tbody>
@@ -310,15 +323,19 @@
                  <table id="gemini-keys-table">
                      <thead>
                          <tr>
+                             <th style="width: 10%;">序号</th>
                              <th>API 密钥</th>
-                             <th>操作</th>
+                             <th style="width: 20%;">操作</th>
                          </tr>
                      </thead>
                      <tbody>
                          <!-- Gemini Keys will be loaded here -->
                      </tbody>
                  </table>
-                 <button type="button" class="add-btn" onclick="addGeminiKey()">+ 添加新密钥</button>
+                 <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button type="button" class="add-btn" onclick="addGeminiKey()">+ 添加新密钥</button>
+                    <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性</button>
+                 </div>
              </div>
          </div>
 
@@ -498,9 +515,10 @@
            .then(data => {
                const tbody = document.querySelector('#api-mappings-table tbody');
                tbody.innerHTML = '';
-               for (const prefix in data) {
+               Object.keys(data).forEach((prefix, index) => {
                    const row = `
                        <tr>
+                           <td>${index + 1}</td>
                            <td>${prefix}</td>
                            <td>${data[prefix]}</td>
                            <td>
@@ -510,7 +528,7 @@
                        </tr>
                    `;
                    tbody.innerHTML += row;
-               }
+               });
            });
        }
 
@@ -767,13 +785,16 @@
        function renderGeminiKeys() {
            const tbody = document.querySelector('#gemini-keys-table tbody');
            tbody.innerHTML = '';
-           currentGeminiKeys.forEach(key => {
+           currentGeminiKeys.forEach((key, index) => {
+               const safeKeyId = key.replace(/[^a-zA-Z0-9]/g, '');
                const row = `
                    <tr>
-                       <td>${key}</td>
+                       <td>${index + 1}</td>
+                       <td id="key-cell-${safeKeyId}">${key}<br><span id="key-status-${safeKeyId}" class="key-status-text"></span></td>
                        <td>
                            <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
                            <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
+                           <button type="button" class="action-btn check-btn" onclick="checkKeyAvailability('${key}')">🔍</button>
                        </td>
                    </tr>
                `;
@@ -855,6 +876,69 @@
            } catch (error) {
                console.error('更新失败:', error);
                alert('更新失败，请查看浏览器控制台获取更多信息。');
+           }
+       }
+
+       async function checkKeyAvailability(key) {
+           const safeKeyId = key.replace(/[^a-zA-Z0-9]/g, '');
+           const statusSpan = document.getElementById(`key-status-${safeKeyId}`);
+           const keyCell = document.getElementById(`key-cell-${safeKeyId}`);
+
+           // 重置样式
+           statusSpan.textContent = '正在检查...';
+           statusSpan.style.color = '#4a90e2';
+           if (keyCell) {
+               keyCell.style.color = 'inherit';
+               keyCell.style.fontWeight = 'normal';
+           }
+
+           try {
+               const response = await fetch('/admin/check_gemini_key', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                       'Authorization': 'Bearer ' + token
+                   },
+                   body: JSON.stringify({ key: key })
+               });
+               const result = await response.json();
+               
+               const applyStyle = (color) => {
+                   statusSpan.style.color = color;
+                   if (keyCell) {
+                       keyCell.style.color = color;
+                       keyCell.style.fontWeight = 'bold';
+                   }
+               };
+
+               if (response.ok) {
+                   if (result.valid) {
+                       statusSpan.textContent = `检查结果: ${result.message}`;
+                       applyStyle('green');
+                   } else {
+                       statusSpan.textContent = `检查结果: ${result.message}`;
+                       applyStyle('red');
+                   }
+               } else {
+                   statusSpan.textContent = `检查失败: ${result.detail || '未知错误'}`;
+                   applyStyle('red');
+               }
+           } catch (error) {
+               console.error('检查密钥时出错:', error);
+               statusSpan.textContent = '检查时发生网络错误。';
+               applyStyle('red');
+           }
+       }
+
+       function sleep(ms) {
+           return new Promise(resolve => setTimeout(resolve, ms));
+       }
+
+       async function checkAllKeysAvailability() {
+           const keysToCheck = [...currentGeminiKeys]; // 创建一个副本以进行迭代
+           for (const key of keysToCheck) {
+               await checkKeyAvailability(key);
+               await sleep(200); // 每0.2秒检查一个，以避免请求过快
            }
        }
 
