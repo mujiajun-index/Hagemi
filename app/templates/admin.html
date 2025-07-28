@@ -420,6 +420,59 @@
        .modal-btn-cancel:hover {
            background-color: #ddd;
        }
+
+       /* Image Viewer Modal Styles */
+       #image-viewer-modal .modal-content {
+           margin: auto;
+           display: block;
+           width: auto;
+           max-width: 90%;
+           max-height: 90vh;
+       }
+
+       #image-viewer-modal .modal-close {
+           position: absolute;
+           top: 15px;
+           right: 35px;
+           color: #f1f1f1;
+           font-size: 40px;
+           font-weight: bold;
+           transition: 0.3s;
+       }
+
+       #image-viewer-modal .modal-close:hover,
+       #image-viewer-modal .modal-close:focus {
+           color: #bbb;
+           text-decoration: none;
+           cursor: pointer;
+       }
+
+       #image-viewer-modal .prev,
+       #image-viewer-modal .next {
+           cursor: pointer;
+           position: absolute;
+           top: 50%;
+           width: auto;
+           padding: 16px;
+           margin-top: -50px;
+           color: white;
+           font-weight: bold;
+           font-size: 20px;
+           transition: 0.6s ease;
+           border-radius: 0 3px 3px 0;
+           user-select: none;
+           -webkit-user-select: none;
+       }
+
+       #image-viewer-modal .next {
+           right: 0;
+           border-radius: 3px 0 0 3px;
+       }
+
+       #image-viewer-modal .prev:hover,
+       #image-viewer-modal .next:hover {
+           background-color: rgba(0, 0, 0, 0.8);
+       }
     </style>
 </head>
 <body>
@@ -540,6 +593,15 @@
            </div>
        </div>
    </div>
+
+    <!-- Image Viewer Modal -->
+    <div id="image-viewer-modal" class="modal">
+        <span class="modal-close" id="image-viewer-close">&times;</span>
+        <img class="modal-content" id="image-viewer-img">
+        <a class="prev">&#10094;</a>
+        <a class="next">&#10095;</a>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const token = sessionStorage.getItem('admin-token');
@@ -1330,6 +1392,58 @@
                     fetchImages(1, 'local', 10);
                 }
             });
+        });
+
+        // --- Image Viewer Modal Logic ---
+        const imageViewerModal = document.getElementById('image-viewer-modal');
+        const imageViewerImg = document.getElementById('image-viewer-img');
+        const imageViewerClose = document.getElementById('image-viewer-close');
+        const prevBtn = document.querySelector('#image-viewer-modal .prev');
+        const nextBtn = document.querySelector('#image-viewer-modal .next');
+
+        let currentImageIndex = 0;
+        let images = [];
+
+        function openImageViewer(index) {
+            currentImageIndex = index;
+            imageViewerImg.src = images[currentImageIndex];
+            imageViewerModal.style.display = "block";
+        }
+
+        function closeImageViewer() {
+            imageViewerModal.style.display = "none";
+        }
+
+        function changeImage(step) {
+            currentImageIndex += step;
+            if (currentImageIndex >= images.length) {
+                currentImageIndex = 0;
+            }
+            if (currentImageIndex < 0) {
+                currentImageIndex = images.length - 1;
+            }
+            imageViewerImg.src = images[currentImageIndex];
+        }
+
+        imageViewerClose.onclick = closeImageViewer;
+        prevBtn.onclick = () => changeImage(-1);
+        nextBtn.onclick = () => changeImage(1);
+
+        // Close modal if clicked outside the image
+        imageViewerModal.onclick = function(event) {
+            if (event.target === imageViewerModal) {
+                closeImageViewer();
+            }
+        }
+
+        // Add click listener to images
+        document.getElementById('image-grid-container').addEventListener('click', function(event) {
+            if (event.target.tagName === 'IMG') {
+                const allImages = Array.from(document.querySelectorAll('#image-grid-container img'));
+                images = allImages.map(img => img.src);
+                const clickedIndex = images.indexOf(event.target.src);
+                openImageViewer(clickedIndex);
+            }
         });
     </script>
 </body>
