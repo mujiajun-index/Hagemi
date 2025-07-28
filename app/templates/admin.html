@@ -292,7 +292,7 @@
            gap: 0.8em;
            margin-top: 1.5em;
        }
-       .pagination-controls button {
+       .pagination-controls button, .pagination-controls select {
            width: auto;
            padding: 0.6em 1.2em;
            font-size: 0.9em;
@@ -300,6 +300,21 @@
            background-color: #fff;
            color: var(--primary-color);
            transition: background-color 0.2s, color 0.2s;
+           border-radius: 4px;
+       }
+       .pagination-controls select {
+           padding-right: 2em; /* Make space for arrow */
+           cursor: pointer;
+       }
+       .page-size-selector {
+           display: flex;
+           align-items: center;
+           gap: 0.5em;
+       }
+       .page-size-selector label {
+           font-weight: normal;
+           margin-bottom: 0;
+           color: var(--text-color);
        }
        .pagination-controls button:hover:not(:disabled) {
            background-color: var(--primary-color);
@@ -1112,19 +1127,21 @@
         const deleteSelectedBtn = document.getElementById('delete-selected-images-btn');
 
         let currentPage = 1;
+        let currentPageSize = 10;
         let currentStorageType = 'local';
         let isSelectAll = false;
 
-        async function fetchImages(page = 1, storageType = 'local') {
+        async function fetchImages(page = 1, storageType = 'local', pageSize = 10) {
             currentPage = page;
             currentStorageType = storageType;
+            currentPageSize = pageSize;
             galleryLoader.style.display = 'block';
             imageGridContainer.innerHTML = '';
             paginationContainer.innerHTML = '';
 
             const token = sessionStorage.getItem('admin-token');
             try {
-                const response = await fetch(`/admin/images?storage_type=${storageType}&page=${page}&page_size=10`, {
+                const response = await fetch(`/admin/images?storage_type=${storageType}&page=${page}&page_size=${pageSize}`, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (!response.ok) {
@@ -1166,23 +1183,50 @@
 
         function renderPagination(total, page, pageSize) {
             const totalPages = Math.ceil(total / pageSize);
-            if (totalPages <= 1) return;
+            paginationContainer.innerHTML = ''; // Clear previous controls
 
+            if (totalPages <= 1 && total <= 10) { // Hide if only one page and few items
+                return;
+            }
+
+            // Page size selector
+            const selectorContainer = document.createElement('div');
+            selectorContainer.className = 'page-size-selector';
+            selectorContainer.innerHTML = `
+                <label for="page-size">每页显示:</label>
+                <select id="page-size" name="page-size">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            `;
+            const selectElement = selectorContainer.querySelector('select');
+            selectElement.value = currentPageSize;
+            selectElement.addEventListener('change', (event) => {
+                const newSize = parseInt(event.target.value, 10);
+                fetchImages(1, currentStorageType, newSize);
+            });
+            
+            // Pagination buttons
             const prevBtn = document.createElement('button');
             prevBtn.textContent = '上一页';
             prevBtn.disabled = page === 1;
-            prevBtn.onclick = () => fetchImages(page - 1, currentStorageType);
-            paginationContainer.appendChild(prevBtn);
+            prevBtn.onclick = () => fetchImages(page - 1, currentStorageType, currentPageSize);
 
             const pageInfo = document.createElement('span');
-            pageInfo.textContent = `第 ${page} / ${totalPages} 页`;
-            paginationContainer.appendChild(pageInfo);
-
+            pageInfo.textContent = `第 ${page} / ${totalPages} 页 (共 ${total} 项)`;
+            
             const nextBtn = document.createElement('button');
             nextBtn.textContent = '下一页';
             nextBtn.disabled = page === totalPages;
-            nextBtn.onclick = () => fetchImages(page + 1, currentStorageType);
+            nextBtn.onclick = () => fetchImages(page + 1, currentStorageType, currentPageSize);
+
+            // Append elements
+            paginationContainer.appendChild(prevBtn);
+            paginationContainer.appendChild(pageInfo);
             paginationContainer.appendChild(nextBtn);
+            paginationContainer.appendChild(selectorContainer);
         }
 
         function copyToClipboard(btn, textToCopy) {
@@ -1236,8 +1280,9 @@
         }
 
         storageTypeSelector.addEventListener('change', (event) => {
-            fetchImages(1, event.target.value);
+            fetchImages(1, event.target.value, currentPageSize);
         });
+
 
         selectAllBtn.addEventListener('click', () => {
             isSelectAll = !isSelectAll;
@@ -1269,7 +1314,7 @@
                     const result = await response.json();
                     alert(result.message);
                     if (result.success || response.ok) {
-                        fetchImages(currentPage, currentStorageType); // Refresh the gallery
+                        fetchImages(currentPage, currentStorageType, currentPageSize); // Refresh the gallery
                     }
                 } catch (error) {
                     console.error('Error deleting images:', error);
@@ -1282,7 +1327,7 @@
         document.querySelectorAll('.category-header').forEach(header => {
             header.addEventListener('click', function() {
                 if (this.nextElementSibling.id === 'image-gallery-content' && !imageGridContainer.hasChildNodes()) {
-                    fetchImages();
+                    fetchImages(1, 'local', 10);
                 }
             });
         });
