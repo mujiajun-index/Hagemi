@@ -7,7 +7,7 @@ from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_
 import os
 import json
 import asyncio
-from typing import Literal
+from typing import Literal, List
 import io
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -63,7 +63,7 @@ from .config_manager import load_api_mappings, save_api_mappings, get_api_mappin
 app.mount("/images", StaticFiles(directory="app/images"), name="images")
 
 # 导入图片存储模块
-from .image_storage import get_image_storage
+from .image_storage import get_image_storage, ImageStorage
 
 # 创建全局图片存储实例
 global_image_storage = get_image_storage()
@@ -746,6 +746,36 @@ async def check_gemini_key(payload: dict = Body(...)):
         # 发生异常时返回500
         logger.error(f"检查密钥时发生未知错误: {e}")
         return JSONResponse(status_code=500, content={"valid": False, "message": f"检查密钥时发生内部错误: {str(e)}"})
+
+@app.get("/admin/images", dependencies=[Depends(verify_password)])
+async def list_images(storage_type: str = 'local', page: int = 1, page_size: int = 10):
+    try:
+        storage = get_image_storage(storage_type)
+        result = storage.list_images(page=page, page_size=page_size)
+        return result
+    except Exception as e:
+        logger.error(f"获取图片列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/admin/images", dependencies=[Depends(verify_password)])
+async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
+    try:
+        storage = get_image_storage(storage_type)
+        success_count = 0
+        failed_files = []
+        for filename in filenames:
+            if storage.delete_image(filename):
+                success_count += 1
+            else:
+                failed_files.append(filename)
+        
+        if failed_files:
+            return {"message": f"成功删除 {success_count} 张图片，{len(failed_files)} 张失败: {', '.join(failed_files)}", "success": False}
+        
+        return {"message": f"成功删除 {success_count} 张图片", "success": True}
+    except Exception as e:
+        logger.error(f"批量删除图片失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- 路由注册 ---
 from .proxy import proxy_router

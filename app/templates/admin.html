@@ -190,6 +190,99 @@
        .bulk-action-btn:hover {
            background-color: #3498db;
        }
+       /* Image Gallery Styles */
+       #image-gallery-content {
+           padding: 1.5em;
+       }
+       .gallery-controls {
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           margin-bottom: 1.5em;
+           flex-wrap: wrap;
+           gap: 1em;
+       }
+       .gallery-controls .radio-group {
+           margin-top: 0;
+       }
+       .image-grid {
+           display: grid;
+           grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+           gap: 1em;
+           margin-bottom: 1.5em;
+       }
+       .image-card {
+           position: relative;
+           border: 1px solid var(--border-color);
+           border-radius: 8px;
+           overflow: hidden;
+           box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+           transition: transform 0.2s, box-shadow 0.2s;
+       }
+       .image-card:hover {
+           transform: translateY(-5px);
+           box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+       }
+       .image-card img {
+           width: 100%;
+           height: 120px;
+           object-fit: cover;
+           display: block;
+       }
+       .image-card-footer {
+           padding: 0.8em;
+           font-size: 0.8em;
+           background-color: #f9fafb;
+       }
+       .image-card-footer p {
+           margin: 0;
+           white-space: nowrap;
+           overflow: hidden;
+           text-overflow: ellipsis;
+       }
+       .image-actions {
+           position: absolute;
+           top: 5px;
+           right: 5px;
+           display: flex;
+           gap: 5px;
+           background-color: rgba(0,0,0,0.5);
+           padding: 5px;
+           border-radius: 4px;
+           opacity: 0;
+           transition: opacity 0.2s;
+       }
+       .image-card:hover .image-actions {
+           opacity: 1;
+       }
+       .image-actions .action-btn {
+           color: white;
+           font-size: 1em;
+       }
+       .image-checkbox {
+           position: absolute;
+           top: 8px;
+           left: 8px;
+           width: 20px;
+           height: 20px;
+           cursor: pointer;
+       }
+       .pagination-controls {
+           display: flex;
+           justify-content: center;
+           align-items: center;
+           gap: 1em;
+           margin-top: 1.5em;
+       }
+       .pagination-controls button {
+           width: auto;
+           padding: 0.5em 1em;
+       }
+       #gallery-loader {
+           text-align: center;
+           padding: 2em;
+           display: none;
+       }
        /* Modal Styles */
        .modal {
            display: none;
@@ -337,7 +430,37 @@
                     <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性</button>
                  </div>
              </div>
-         </div>
+          </div>
+
+          <div class="category-card">
+              <div class="category-header">
+                  <span>历史图片查看</span>
+                  <span class="toggle-icon">▶</span>
+              </div>
+              <div class="category-content" id="image-gallery-content">
+                  <div class="gallery-controls">
+                      <div class="radio-group" id="storage-type-selector">
+                          <label class="radio-label">
+                              <input type="radio" name="storageType" value="local" checked> 本地
+                          </label>
+                          <label class="radio-label">
+                              <input type="radio" name="storageType" value="memory"> 内存
+                          </label>
+                      </div>
+                      <div>
+                          <button type="button" class="add-btn" id="select-all-images-btn">全选</button>
+                          <button type="button" class="add-btn delete-btn" id="delete-selected-images-btn" style="margin-left: 10px;">删除选中</button>
+                      </div>
+                  </div>
+                  <div id="gallery-loader">正在加载图片...</div>
+                  <div class="image-grid" id="image-grid-container">
+                      <!-- Images will be loaded here -->
+                  </div>
+                  <div class="pagination-controls" id="pagination-container">
+                      <!-- Pagination will be loaded here -->
+                  </div>
+              </div>
+          </div>
 
             <div class="button-group">
                 <button type="button" class="logout-btn" onclick="logout()">退出登录</button>
@@ -946,6 +1069,147 @@
             sessionStorage.removeItem('admin-token');
             window.location.href = '/';
         }
+        // --- Image Gallery Logic ---
+        const imageGridContainer = document.getElementById('image-grid-container');
+        const paginationContainer = document.getElementById('pagination-container');
+        const storageTypeSelector = document.getElementById('storage-type-selector');
+        const galleryLoader = document.getElementById('gallery-loader');
+        const selectAllBtn = document.getElementById('select-all-images-btn');
+        const deleteSelectedBtn = document.getElementById('delete-selected-images-btn');
+
+        let currentPage = 1;
+        let currentStorageType = 'local';
+        let isSelectAll = false;
+
+        async function fetchImages(page = 1, storageType = 'local') {
+            currentPage = page;
+            currentStorageType = storageType;
+            galleryLoader.style.display = 'block';
+            imageGridContainer.innerHTML = '';
+            paginationContainer.innerHTML = '';
+
+            const token = sessionStorage.getItem('admin-token');
+            try {
+                const response = await fetch(`/admin/images?storage_type=${storageType}&page=${page}&page_size=10`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (!response.ok) {
+                    throw new Error('获取图片失败: ' + response.statusText);
+                }
+                const data = await response.json();
+                renderImageGrid(data.images);
+                renderPagination(data.total, data.page, data.page_size);
+            } catch (error) {
+                console.error('Error fetching images:', error);
+                imageGridContainer.innerHTML = '<p>加载图片失败，请稍后重试。</p>';
+            } finally {
+                galleryLoader.style.display = 'none';
+            }
+        }
+
+        function renderImageGrid(images) {
+            if (images.length === 0) {
+                imageGridContainer.innerHTML = '<p>这里还没有图片。</p>';
+                return;
+            }
+            images.forEach(image => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.innerHTML = `
+                    <input type="checkbox" class="image-checkbox" data-filename="${image.filename}">
+                    <img src="${image.url}" alt="${image.filename}" loading="lazy">
+                    <div class="image-actions">
+                        <button class="action-btn" title="复制链接" onclick="copyToClipboard('${image.url}')">📋</button>
+                    </div>
+                    <div class="image-card-footer">
+                        <p title="${image.filename}">${image.filename}</p>
+                        <p style="font-size: 0.9em; color: #666;">${new Date(image.created_at).toLocaleString()}</p>
+                    </div>
+                `;
+                imageGridContainer.appendChild(card);
+            });
+        }
+
+        function renderPagination(total, page, pageSize) {
+            const totalPages = Math.ceil(total / pageSize);
+            if (totalPages <= 1) return;
+
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '上一页';
+            prevBtn.disabled = page === 1;
+            prevBtn.onclick = () => fetchImages(page - 1, currentStorageType);
+            paginationContainer.appendChild(prevBtn);
+
+            const pageInfo = document.createElement('span');
+            pageInfo.textContent = `第 ${page} / ${totalPages} 页`;
+            paginationContainer.appendChild(pageInfo);
+
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = '下一页';
+            nextBtn.disabled = page === totalPages;
+            nextBtn.onclick = () => fetchImages(page + 1, currentStorageType);
+            paginationContainer.appendChild(nextBtn);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('链接已复制到剪贴板');
+            }, (err) => {
+                alert('复制失败: ' + err);
+            });
+        }
+
+        storageTypeSelector.addEventListener('change', (event) => {
+            fetchImages(1, event.target.value);
+        });
+
+        selectAllBtn.addEventListener('click', () => {
+            isSelectAll = !isSelectAll;
+            document.querySelectorAll('.image-checkbox').forEach(checkbox => {
+                checkbox.checked = isSelectAll;
+            });
+            selectAllBtn.textContent = isSelectAll ? '取消全选' : '全选';
+        });
+
+        deleteSelectedBtn.addEventListener('click', async () => {
+            const selectedFiles = Array.from(document.querySelectorAll('.image-checkbox:checked')).map(cb => cb.dataset.filename);
+            if (selectedFiles.length === 0) {
+                alert('请先选择要删除的图片');
+                return;
+            }
+
+            const confirmed = await showConfirm('确认删除', `您确定要删除选中的 ${selectedFiles.length} 张图片吗？此操作不可恢复。`);
+            if (confirmed) {
+                const token = sessionStorage.getItem('admin-token');
+                try {
+                    const response = await fetch(`/admin/images?storage_type=${currentStorageType}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(selectedFiles)
+                    });
+                    const result = await response.json();
+                    alert(result.message);
+                    if (result.success || response.ok) {
+                        fetchImages(currentPage, currentStorageType); // Refresh the gallery
+                    }
+                } catch (error) {
+                    console.error('Error deleting images:', error);
+                    alert('删除失败，请查看控制台获取更多信息。');
+                }
+            }
+        });
+
+        // Initial load
+        document.querySelectorAll('.category-header').forEach(header => {
+            header.addEventListener('click', function() {
+                if (this.nextElementSibling.id === 'image-gallery-content' && !imageGridContainer.hasChildNodes()) {
+                    fetchImages();
+                }
+            });
+        });
     </script>
 </body>
 </html>

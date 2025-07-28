@@ -21,6 +21,16 @@ class ImageStorage(ABC):
         """保存图片并返回可访问的URL"""
         pass
 
+    @abstractmethod
+    def list_images(self, page: int, page_size: int) -> dict:
+        """列出存储的图片，支持分页"""
+        pass
+
+    @abstractmethod
+    def delete_image(self, filename: str) -> bool:
+        """删除指定的图片"""
+        pass
+
 
 # 本地存储实现
 class LocalImageStorage(ImageStorage):
@@ -141,6 +151,50 @@ class LocalImageStorage(ImageStorage):
                 logger.info(f"按大小清理：删除最旧图片 {oldest_file_path}, 当前总大小 {current_size_mb:.2f}MB")
             except OSError as e:
                 logger.error(f"删除文件失败 {oldest_file_path}: {e}")
+
+    def list_images(self, page: int, page_size: int) -> dict:
+        """列出本地存储的图片，支持分页"""
+        image_files_meta = []
+        for f in os.listdir(self.image_dir):
+            file_path = os.path.join(self.image_dir, f)
+            if os.path.isfile(file_path):
+                try:
+                    image_files_meta.append({
+                        "filename": f,
+                        "url": f"{self.host_url}/images/{f}",
+                        "created_at": datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
+                    })
+                except OSError as e:
+                    logger.warning(f"无法获取文件元数据 {file_path}: {e}")
+
+        # 按创建时间降序排序
+        image_files_meta.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        # 分页
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_files = image_files_meta[start:end]
+        
+        return {
+            "images": paginated_files,
+            "total": len(image_files_meta),
+            "page": page,
+            "page_size": page_size
+        }
+
+    def delete_image(self, filename: str) -> bool:
+        """删除本地存储的指定图片"""
+        file_path = os.path.join(self.image_dir, filename)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+                logger.info(f"成功删除本地图片: {filename}")
+                return True
+            except OSError as e:
+                logger.error(f"删除本地图片失败 {filename}: {e}")
+                return False
+        logger.warning(f"尝试删除但文件不存在: {filename}")
+        return False
 # 云存储实现（示例，需要根据实际云服务提供商进行实现）
 from qiniu import Auth, put_data
 
@@ -275,6 +329,48 @@ class MemoryImageStorage(ImageStorage):
             return image_info['data'], image_info['mime_type']
         return None, None
 
+    def list_images(self, page: int, page_size: int) -> dict:
+        """列出内存中存储的图片，支持分页"""
+        # 过滤掉None的值并转换为列表
+        all_images = [img for img in self.images_array if img is not None]
+        
+        # 按创建时间降序排序
+        all_images.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        # 分页
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_images_info = all_images[start:end]
+
+        # 构建返回结果
+        images_data = [{
+            "filename": img['filename'],
+            "url": f"{self.host_url}/memory-images/{img['filename']}",
+            "created_at": img['created_at'].isoformat()
+        } for img in paginated_images_info]
+
+        return {
+            "images": images_data,
+            "total": len(all_images),
+            "page": page,
+            "page_size": page_size
+        }
+
+    def delete_image(self, filename: str) -> bool:
+        """从内存中删除指定的图片"""
+        if filename in self.filename_to_index:
+            index = self.filename_to_index[filename]
+            
+            # 从环形数组和映射中删除
+            del self.filename_to_index[filename]
+            self.images_array[index] = None
+            self.count -= 1
+            
+            logger.info(f"成功从内存中删除图片: {filename}")
+            return True
+        logger.warning(f"尝试从内存删除但文件不存在: {filename}")
+        return False
+
 
 class TencentCloudImageStorage(ImageStorage):
     """将图片保存到腾讯云COS存储服务"""
@@ -335,9 +431,12 @@ class TencentCloudImageStorage(ImageStorage):
 
 
 # 工厂函数，根据配置创建合适的存储实例
-def get_image_storage() -> ImageStorage:
-    """根据环境变量配置创建并返回适当的图片存储实例"""
-    storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'local').lower()
+def get_image_storage(storage_type: Optional[str] = None) -> ImageStorage:
+    """根据环境变量配置或传入的参数创建并返回适当的图片存储实例"""
+    if storage_type is None:
+        storage_type = os.environ.get('IMAGE_STORAGE_TYPE', 'local').lower()
+    else:
+        storage_type = storage_type.lower()
     host_url = os.environ.get('HOST_URL', "http://127.0.0.1:7860")
     
     if storage_type == 'local':
