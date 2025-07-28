@@ -206,6 +206,14 @@
        .gallery-controls .radio-group {
            margin-top: 0;
        }
+       .gallery-controls .add-btn {
+           margin-top: 0;
+       }
+       .gallery-actions {
+           display: flex;
+           align-items: center;
+           gap: 10px;
+       }
        .image-grid {
            display: grid;
            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -473,9 +481,9 @@
                               <input type="radio" name="storageType" value="memory"> 内存
                           </label>
                       </div>
-                      <div>
+                      <div class="gallery-actions">
                           <button type="button" class="add-btn" id="select-all-images-btn">全选</button>
-                          <button type="button" class="add-btn delete-btn" id="delete-selected-images-btn" style="margin-left: 10px;">删除选中</button>
+                          <button type="button" class="add-btn delete-btn" id="delete-selected-images-btn">删除选中</button>
                       </div>
                   </div>
                   <div id="gallery-loader">正在加载图片...</div>
