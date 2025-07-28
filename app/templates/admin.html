@@ -1145,7 +1145,7 @@
                     <input type="checkbox" class="image-checkbox" data-filename="${image.filename}">
                     <img src="${image.url}" alt="${image.filename}" loading="lazy">
                     <div class="image-actions">
-                        <button class="action-btn" title="复制链接" onclick="copyToClipboard('${image.url}')">📋</button>
+                        <button type="button" class="action-btn" title="复制链接" onclick="copyToClipboard(this, '${image.url}')">📋</button>
                     </div>
                     <div class="image-card-footer">
                         <p title="${image.filename}">${image.filename}</p>
@@ -1177,12 +1177,54 @@
             paginationContainer.appendChild(nextBtn);
         }
 
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert('链接已复制到剪贴板');
-            }, (err) => {
-                alert('复制失败: ' + err);
-            });
+        function copyToClipboard(btn, textToCopy) {
+            if (!textToCopy) {
+                alert("没有内容可复制。");
+                return;
+            }
+
+            const originalText = btn.innerHTML;
+            
+            const showSuccess = () => {
+                btn.innerHTML = '已复制';
+                btn.disabled = true;
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(textToCopy).then(showSuccess).catch(err => {
+                    console.error('自动复制失败: ', err);
+                    fallbackCopyToClipboard(btn, textToCopy, showSuccess);
+                });
+            } else {
+                fallbackCopyToClipboard(btn, textToCopy, showSuccess);
+            }
+        }
+
+        function fallbackCopyToClipboard(btn, text, successCallback) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.top = '-9999px';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    successCallback();
+                } else {
+                   alert('自动复制失败，请手动选择文本并复制。');
+                }
+            } catch (err) {
+                console.error('Fallback 复制失败: ', err);
+                alert('自动复制失败，请手动选择文本并复制。\n错误信息: ' + err);
+            }
+            document.body.removeChild(textArea);
         }
 
         storageTypeSelector.addEventListener('change', (event) => {
