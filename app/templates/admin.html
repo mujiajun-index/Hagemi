@@ -178,6 +178,94 @@
            font-size: 0.9em;
            margin-top: 1em;
        }
+       /* Modal Styles */
+       .modal {
+           display: none;
+           position: fixed;
+           z-index: 1000;
+           left: 0;
+           top: 0;
+           width: 100%;
+           height: 100%;
+           overflow: auto;
+           background-color: rgba(0,0,0,0.5);
+       }
+       .modal-content {
+           background-color: #fefefe;
+           margin: 15% auto;
+           padding: 20px;
+           border: 1px solid #888;
+           width: 80%;
+           max-width: 500px;
+           border-radius: 8px;
+           box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+           animation: modal-anim 0.3s ease-out;
+       }
+       @keyframes modal-anim {
+           from { transform: translateY(-50px); opacity: 0; }
+           to { transform: translateY(0); opacity: 1; }
+       }
+       .modal-header {
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           border-bottom: 1px solid #eee;
+           padding-bottom: 10px;
+       }
+       .modal-header h2 {
+           margin: 0;
+           font-size: 1.25em;
+       }
+       .modal-close {
+           color: #aaa;
+           font-size: 28px;
+           font-weight: bold;
+           cursor: pointer;
+       }
+       .modal-close:hover,
+       .modal-close:focus {
+           color: black;
+           text-decoration: none;
+       }
+       .modal-body {
+           padding: 20px 0;
+       }
+       .modal-input {
+           width: 100%;
+           padding: 10px;
+           margin-top: 10px;
+           box-sizing: border-box;
+           border: 1px solid #ccc;
+           border-radius: 4px;
+       }
+       .modal-footer {
+           display: flex;
+           justify-content: flex-end;
+           gap: 10px;
+           padding-top: 10px;
+           border-top: 1px solid #eee;
+       }
+       .modal-btn {
+           padding: 10px 20px;
+           border: none;
+           border-radius: 4px;
+           cursor: pointer;
+           font-size: 1em;
+       }
+       .modal-btn-confirm {
+           background-color: var(--primary-color);
+           color: white;
+       }
+       .modal-btn-confirm:hover {
+           background-color: #357abd;
+       }
+       .modal-btn-cancel {
+           background-color: #f1f1f1;
+           color: #333;
+       }
+       .modal-btn-cancel:hover {
+           background-color: #ddd;
+       }
     </style>
 </head>
 <body>
@@ -239,6 +327,30 @@
             </div>
         </form>
     </div>
+   <div id="modal" class="modal">
+       <div class="modal-content">
+           <div class="modal-header">
+               <h2 id="modal-title"></h2>
+               <span class="modal-close">&times;</span>
+           </div>
+           <div class="modal-body">
+               <p id="modal-text" style="margin-top: 0;"></p>
+               <div id="modal-single-input-container">
+                   <input type="text" id="modal-input" class="modal-input">
+               </div>
+               <div id="modal-mapping-container" style="display: none;">
+                   <label for="modal-input-prefix" style="display:block; font-weight: bold;">请求前缀</label>
+                   <input type="text" id="modal-input-prefix" class="modal-input" placeholder="/example">
+                   <label for="modal-input-target" style="display:block; margin-top:1em; font-weight: bold;">目标地址</label>
+                   <input type="text" id="modal-input-target" class="modal-input" placeholder="https://api.example.com">
+               </div>
+           </div>
+           <div class="modal-footer">
+               <button id="modal-cancel-btn" class="modal-btn modal-btn-cancel">取消</button>
+               <button id="modal-confirm-btn" class="modal-btn modal-btn-confirm">确认</button>
+           </div>
+       </div>
+   </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const token = sessionStorage.getItem('admin-token');
@@ -288,8 +400,96 @@
            });
         });
        
-       const token = sessionStorage.getItem('admin-token');
+       // --- Modal Logic ---
+       const modal = document.getElementById('modal');
+       const modalTitle = document.getElementById('modal-title');
+       const modalText = document.getElementById('modal-text');
+       const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+       const modalCancelBtn = document.getElementById('modal-cancel-btn');
+       const modalCloseBtn = document.querySelector('.modal-close');
+       // Input containers
+       const modalSingleInputContainer = document.getElementById('modal-single-input-container');
+       const modalMappingContainer = document.getElementById('modal-mapping-container');
+       // Inputs
+       const modalInput = document.getElementById('modal-input');
+       const modalInputPrefix = document.getElementById('modal-input-prefix');
+       const modalInputTarget = document.getElementById('modal-input-target');
 
+       let resolvePromise;
+
+       function showModal() {
+           modal.style.display = 'block';
+       }
+
+       function hideModal() {
+           modal.style.display = 'none';
+           resolvePromise = null; // Clear the resolver when hiding
+       }
+
+       function handleModalClose() {
+           if (resolvePromise) {
+               resolvePromise(null);
+           }
+           hideModal();
+       }
+
+       modalCloseBtn.onclick = handleModalClose;
+       window.onclick = function(event) {
+           if (event.target == modal) {
+               handleModalClose();
+           }
+       };
+
+       function showConfirm(title, text) {
+           return new Promise(resolve => {
+               resolvePromise = resolve;
+               modalTitle.textContent = title;
+               modalText.textContent = text;
+               
+               modalText.style.display = 'block';
+               modalSingleInputContainer.style.display = 'none';
+               modalMappingContainer.style.display = 'none';
+
+               modalConfirmBtn.onclick = () => {
+                   if (resolvePromise) resolve(true);
+                   hideModal();
+               };
+               modalCancelBtn.onclick = () => {
+                   if (resolvePromise) resolve(false);
+                   hideModal();
+               };
+               showModal();
+           });
+       }
+
+       function showPrompt(title, text, defaultValue = '', inputType = 'text') {
+           return new Promise(resolve => {
+               resolvePromise = resolve;
+               modalTitle.textContent = title;
+               modalText.textContent = text;
+               modalText.style.display = text ? 'block' : 'none';
+
+               modalSingleInputContainer.style.display = 'block';
+               modalMappingContainer.style.display = 'none';
+               
+               modalInput.value = defaultValue;
+               modalInput.type = inputType;
+               modalInput.focus();
+
+               modalConfirmBtn.onclick = () => {
+                   if (resolvePromise) resolve(modalInput.value);
+                   hideModal();
+               };
+               modalCancelBtn.onclick = () => {
+                   if (resolvePromise) resolve(null);
+                   hideModal();
+               };
+               showModal();
+           });
+       }
+
+       const token = sessionStorage.getItem('admin-token');
+ 
        function loadApiMappings() {
            fetch('/admin/api_mappings', {
                headers: { 'Authorization': 'Bearer ' + token }
@@ -304,8 +504,8 @@
                            <td>${prefix}</td>
                            <td>${data[prefix]}</td>
                            <td>
-                               <button class="action-btn edit-btn" onclick="editApiMapping('${prefix}', '${data[prefix]}')">✏️</button>
-                               <button class="action-btn delete-btn" onclick="deleteApiMapping('${prefix}')">🗑️</button>
+                               <button type="button" class="action-btn edit-btn" onclick="editApiMapping('${prefix}', '${data[prefix]}')">✏️</button>
+                               <button type="button" class="action-btn delete-btn" onclick="deleteApiMapping('${prefix}')">🗑️</button>
                            </td>
                        </tr>
                    `;
@@ -314,11 +514,40 @@
            });
        }
 
-       function addApiMapping() {
-           const prefix = prompt("请输入新的请求前缀 (例如 /openai):");
-           if (!prefix) return;
-           const target_url = prompt(`请输入 ${prefix} 的目标地址:`);
-           if (!target_url) return;
+       function showMappingPrompt(title, prefix = '', target = '') {
+           return new Promise(resolve => {
+               resolvePromise = resolve;
+               modalTitle.textContent = title;
+               modalText.style.display = 'none';
+               modalSingleInputContainer.style.display = 'none';
+               modalMappingContainer.style.display = 'block';
+
+               modalInputPrefix.value = prefix;
+               modalInputTarget.value = target;
+               modalInputPrefix.focus();
+
+               modalConfirmBtn.onclick = () => {
+                   const prefixVal = modalInputPrefix.value.trim();
+                   const targetVal = modalInputTarget.value.trim();
+                   if (!prefixVal || !targetVal) {
+                       alert('请求前缀和目标地址不能为空。');
+                       return; // Keep modal open
+                   }
+                   if (resolvePromise) resolve({ prefix: prefixVal, target_url: targetVal });
+                   hideModal();
+               };
+
+               modalCancelBtn.onclick = () => {
+                   if (resolvePromise) resolve(null);
+                   hideModal();
+               };
+               showModal();
+           });
+       }
+
+       async function addApiMapping() {
+           const result = await showMappingPrompt("添加新映射");
+           if (!result) return;
 
            fetch('/admin/api_mappings', {
                method: 'POST',
@@ -326,17 +555,15 @@
                    'Content-Type': 'application/json',
                    'Authorization': 'Bearer ' + token
                },
-               body: JSON.stringify({ prefix, target_url })
+               body: JSON.stringify({ prefix: result.prefix, target_url: result.target_url })
            })
            .then(handleApiResponse)
            .then(loadApiMappings);
        }
 
-       function editApiMapping(oldPrefix, oldUrl) {
-           const newPrefix = prompt("请输入请求前缀:", oldPrefix);
-           if (!newPrefix) return;
-           const newUrl = prompt("请输入目标地址:", oldUrl);
-           if (!newUrl) return;
+       async function editApiMapping(oldPrefix, oldUrl) {
+           const result = await showMappingPrompt("编辑映射", oldPrefix, oldUrl);
+           if (!result) return;
 
            fetch('/admin/api_mappings', {
                method: 'PUT',
@@ -346,16 +573,17 @@
                },
                body: JSON.stringify({
                    old_prefix: oldPrefix,
-                   new_prefix: newPrefix,
-                   target_url: newUrl
+                   new_prefix: result.prefix,
+                   target_url: result.target_url
                })
            })
            .then(handleApiResponse)
            .then(loadApiMappings);
        }
 
-       function deleteApiMapping(prefix) {
-           if (!confirm(`确定要删除映射 ${prefix} 吗?`)) return;
+       async function deleteApiMapping(prefix) {
+           const confirmed = await showConfirm("确认删除", `确定要删除映射 ${prefix} 吗?`);
+           if (!confirmed) return;
            
            // 从第二个字符开始，以移除开头的'/'
            const encodedPrefix = encodeURIComponent(prefix.substring(1));
@@ -379,9 +607,10 @@
            });
        }
 
-        function saveGroupSettings(groupContentElement) {
-            const password = prompt("为确认更改，请输入管理员密码:", "");
+        async function saveGroupSettings(groupContentElement) {
+            const password = await showPrompt("确认更改", "请输入管理员密码以保存更改:", '', 'password');
             if (password === null) {
+                alert('操作已取消。');
                 return;
             }
 
@@ -399,25 +628,24 @@
             data.password = password;
 
             const token = sessionStorage.getItem('admin-token');
-            fetch('/admin/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json().then(result => ({ok: response.ok, result})))
-            .then(({ok, result}) => {
+            try {
+                const response = await fetch('/admin/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
                 alert(result.message || "发生未知错误");
-                if (ok) {
+                if (response.ok) {
                     window.location.reload();
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('更新失败:', error);
                 alert('更新失败，请查看浏览器控制台获取更多信息。');
-            });
+            }
         }
 
        let currentGeminiKeys = [];
@@ -544,29 +772,35 @@
                    <tr>
                        <td>${key}</td>
                        <td>
-                           <button class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
-                           <button class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
+                           <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
+                           <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
                        </td>
                    </tr>
                `;
                tbody.innerHTML += row;
            });
+
+           // 同时同步更新“API与访问控制”中的输入框
+           const geminiKeysInput = document.getElementById('GEMINI_API_KEYS');
+           if (geminiKeysInput) {
+               geminiKeysInput.value = currentGeminiKeys.join(',');
+           }
        }
 
-       function addGeminiKey() {
-           const newKey = prompt("请输入新的 Gemini API 密钥:");
+       async function addGeminiKey() {
+           const newKey = await showPrompt("添加新密钥", "请输入新的 Gemini API 密钥:");
            if (newKey && newKey.trim()) {
                if (currentGeminiKeys.includes(newKey.trim())) {
                    alert('该密钥已存在。');
                    return;
                }
                currentGeminiKeys.push(newKey.trim());
-               saveGeminiKeys();
+               await saveGeminiKeys();
            }
        }
 
-       function editGeminiKey(oldKey) {
-           const newKey = prompt("请编辑 Gemini API 密钥:", oldKey);
+       async function editGeminiKey(oldKey) {
+           const newKey = await showPrompt("编辑密钥", "请编辑 Gemini API 密钥:", oldKey);
            if (newKey && newKey.trim() && newKey.trim() !== oldKey) {
                const index = currentGeminiKeys.indexOf(oldKey);
                if (index !== -1) {
@@ -575,23 +809,24 @@
                        return;
                    }
                    currentGeminiKeys[index] = newKey.trim();
-                   saveGeminiKeys();
+                   await saveGeminiKeys();
                }
            }
        }
 
-       function deleteGeminiKey(keyToDelete) {
-           if (confirm(`确定要删除密钥 "${keyToDelete}" 吗?`)) {
+       async function deleteGeminiKey(keyToDelete) {
+           const confirmed = await showConfirm("确认删除", `确定要删除密钥 "${keyToDelete}" 吗?`);
+           if (confirmed) {
                currentGeminiKeys = currentGeminiKeys.filter(key => key !== keyToDelete);
-               saveGeminiKeys();
+               await saveGeminiKeys();
            }
        }
 
-       function saveGeminiKeys() {
-           const password = prompt("为确认更改，请输入管理员密码:", "");
+       async function saveGeminiKeys() {
+           const password = await showPrompt("确认操作", "为确认更改，请输入管理员密码:", '', 'password');
            if (password === null) {
-               // 用户取消输入密码
-               loadGeminiKeys(); // 重新加载以恢复未保存的更改
+               // 用户取消输入密码，不需要任何操作，因为更改尚未应用
+               alert('操作已取消。');
                return;
            }
 
@@ -601,28 +836,26 @@
                'password': password
            };
 
-           fetch('/admin/update', {
-               method: 'POST',
-               headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': 'Bearer ' + token
-               },
-               body: JSON.stringify(data)
-           })
-           .then(response => response.json().then(result => ({ok: response.ok, result})))
-           .then(({ok, result}) => {
+           try {
+               const response = await fetch('/admin/update', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                       'Authorization': 'Bearer ' + token
+                   },
+                   body: JSON.stringify(data)
+               });
+               const result = await response.json();
                alert(result.message || "发生未知错误");
-               if (ok) {
+               if (response.ok) {
                    renderGeminiKeys();
                } else {
-                   loadGeminiKeys(); // 如果保存失败，则重新加载以恢复
+                   alert('保存失败，将重新加载密钥列表。');
                }
-           })
-           .catch(error => {
+           } catch (error) {
                console.error('更新失败:', error);
                alert('更新失败，请查看浏览器控制台获取更多信息。');
-               loadGeminiKeys(); // 发生错误时也重新加载
-           });
+           }
        }
 
         function logout() {
