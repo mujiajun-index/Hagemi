@@ -63,7 +63,7 @@ from .config_manager import load_api_mappings, save_api_mappings, get_api_mappin
 app.mount("/images", StaticFiles(directory="app/images"), name="images")
 
 # 导入图片存储模块
-from .image_storage import get_image_storage, ImageStorage, MemoryImageStorage
+from .image_storage import get_image_storage, ImageStorage, MemoryImageStorage, LocalImageStorage
 
 # 创建全局图片存储实例
 global_image_storage = get_image_storage()
@@ -768,7 +768,8 @@ async def check_gemini_key(payload: dict = Body(...)):
 @app.get("/admin/images", dependencies=[Depends(verify_password)])
 async def list_images(storage_type: str = 'local', page: int = 1, page_size: int = 10):
     try:
-        if storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage):
+        if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
+           (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
             storage = global_image_storage
         else:
             storage = get_image_storage(storage_type)
@@ -781,7 +782,8 @@ async def list_images(storage_type: str = 'local', page: int = 1, page_size: int
 @app.delete("/admin/images", dependencies=[Depends(verify_password)])
 async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
     try:
-        if storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage):
+        if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
+           (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
             storage = global_image_storage
         else:
             storage = get_image_storage(storage_type)
@@ -804,7 +806,8 @@ async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
 @app.get("/admin/storage_details", dependencies=[Depends(verify_password)])
 async def get_storage_details(storage_type: str = 'local'):
     try:
-        if storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage):
+        if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
+           (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
             storage = global_image_storage
         else:
             storage = get_image_storage(storage_type)
