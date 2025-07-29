@@ -503,6 +503,88 @@ async def root():
                 color: #ccc;
                 font-size: 0.9em; 
             }}
+            /* Modal Styles */
+            .modal {{
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.5);
+            }}
+            .modal-content {{
+                background-color: #fefefe;
+                margin: 15% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+                max-width: 400px;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                animation: modal-anim 0.3s ease-out;
+            }}
+            @keyframes modal-anim {{
+                from {{ transform: translateY(-50px); opacity: 0; }}
+                to {{ transform: translateY(0); opacity: 1; }}
+            }}
+            .modal-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }}
+            .modal-header h2 {{
+                margin: 0;
+                font-size: 1.25em;
+            }}
+            .modal-close {{
+                color: #aaa;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+            }}
+            .modal-close:hover,
+            .modal-close:focus {{
+                color: black;
+                text-decoration: none;
+            }}
+            .modal-body {{
+                padding: 20px 0;
+            }}
+            .modal-input {{
+                width: 100%;
+                padding: 10px;
+                margin-top: 10px;
+                box-sizing: border-box;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }}
+            .modal-footer {{
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #eee;
+            }}
+            .modal-btn {{
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 1em;
+            }}
+            .modal-btn-confirm {{
+                background-color: #4a90e2;
+                color: white;
+            }}
+            .modal-btn-cancel {{
+                background-color: #f1f1f1;
+                color: #333;
+            }}
         </style>
     </head>
     <body>
@@ -528,33 +610,92 @@ async def root():
             <p class="version">v{VERSION}</p>
         </div>
     </body>
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>管理员登录</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>请输入管理员密码:</p>
+                <input type="password" id="password-input" class="modal-input" onkeydown="if(event.keyCode==13) document.getElementById('modal-confirm-btn').click()">
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="modal-btn modal-btn-cancel">取消</button>
+                <button id="modal-confirm-btn" class="modal-btn modal-btn-confirm">登录</button>
+            </div>
+        </div>
+    </div>
     <script>
-        function goToAdmin() {{
-            const password = prompt("请输入管理员密码:", "");
-            if (password === null) {{
-                return;
-            }}
+        const modal = document.getElementById('password-modal');
+        const modalCloseBtn = document.querySelector('#password-modal .modal-close');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const passwordInput = document.getElementById('password-input');
+        let resolvePromise;
 
-            fetch('/admin/login', {{
-                method: 'POST',
-                headers: {{
-                    'Content-Type': 'application/json'
-                }},
-                body: JSON.stringify({{ password: password }})
-            }})
-            .then(response => {{
-                if (!response.ok) {{
-                    throw new Error('密码错误或服务器异常');
-                }}
-                return response.json();
-            }})
-            .then(data => {{
-                sessionStorage.setItem('admin-token', data.access_token);
-                window.location.href = '/admin';
-            }})
-            .catch(error => {{
-                alert(error.message);
+        function showPasswordModal() {{
+            modal.style.display = 'block';
+            passwordInput.focus();
+            return new Promise(resolve => {{
+                resolvePromise = resolve;
             }});
+        }}
+
+        function hideModal() {{
+            modal.style.display = 'none';
+            passwordInput.value = '';
+            if (resolvePromise) {{
+                resolvePromise(null); // Resolve with null if modal is closed without confirmation
+                resolvePromise = null;
+            }}
+        }}
+
+        modalConfirmBtn.onclick = () => {{
+            if (resolvePromise) {{
+                resolvePromise(passwordInput.value);
+                resolvePromise = null;
+            }}
+            hideModal();
+        }};
+
+        modalCancelBtn.onclick = hideModal;
+        modalCloseBtn.onclick = hideModal;
+
+        window.onclick = function(event) {{
+            if (event.target == modal) {{
+                hideModal();
+            }}
+        }};
+
+        async function goToAdmin() {{
+            const password = await showPasswordModal();
+            if (password) {{
+                fetch('/admin/login', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json'
+                    }},
+                    body: JSON.stringify({{ password: password }})
+                }})
+                .then(response => {{
+                    if (!response.ok) {{
+                        return response.json().then(err => {{ throw new Error(err.detail || '密码错误或服务器异常'); }});
+                    }}
+                    return response.json();
+                }})
+                .then(data => {{
+                    if (data.access_token) {{
+                        sessionStorage.setItem('admin-token', data.access_token);
+                        window.location.href = '/admin';
+                    }} else {{
+                        alert(data.detail || '登录失败');
+                    }}
+                }})
+                .catch(error => {{
+                    alert(error.message);
+                }});
+            }}
         }}
     </script>
     </html>
@@ -650,7 +791,7 @@ async def login_for_access_token(request: Request):
     if password != PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password",
+            detail="密码错误!",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
