@@ -675,6 +675,10 @@
            
            loadApiMappings();
            // loadGeminiKeys(); // This call is moved into the main fetch chain
+           // 获取本地存储的详情
+           fetchStorageDetails('local');
+           // 获取本地存储图片
+           fetchImages(1, 'local', 10);
 
            document.querySelectorAll('.category-header').forEach(header => {
                 header.addEventListener('click', function() {
@@ -1532,9 +1536,6 @@
                fetchStorageDetails(selectedStorage);
            });
        });
-
-       // 页面加载时获取本地存储的详情
-       fetchStorageDetails('local');
     </script>
 </body>
 </html>
