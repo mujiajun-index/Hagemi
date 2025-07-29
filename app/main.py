@@ -562,7 +562,7 @@ async def root():
     return HTMLResponse(content=html_content)
 
 @app.get("/admin", response_class=FileResponse)
-async def admin_page(_: None = Depends(verify_password)):
+async def admin_page():
     return FileResponse("app/templates/admin.html")
 
 @app.get("/admin/env")

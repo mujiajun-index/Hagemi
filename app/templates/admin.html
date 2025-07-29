@@ -1491,9 +1491,9 @@
                container.style.display = 'none';
                return;
            }
-
+           const token = sessionStorage.getItem('admin-token');
            fetch(`/admin/storage_details?storage_type=${storageType}`, {
-               headers: { 'Authorization': `Bearer ${localStorage.getItem('jwt_token')}` }
+               headers: { 'Authorization': `Bearer ${token}` }
            })
            .then(response => response.json())
            .then(data => {
