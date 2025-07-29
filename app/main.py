@@ -156,27 +156,41 @@ async def check_keys():
     return available_keys
 
 
+async def reload_keys():
+    """
+    重新加载、检查并设置可用的API密钥和模型。
+    """
+    log_msg = format_log_message('INFO', "Reloading and checking API keys...")
+    logger.info(log_msg)
+    available_keys = await check_keys()
+    if available_keys:
+        key_manager.api_keys = available_keys
+        key_manager._reset_key_stack()
+        key_manager.show_all_keys()
+        log_msg = format_log_message('INFO', f"可用 API 密钥数量：{len(key_manager.api_keys)}")
+        logger.info(log_msg)
+        log_msg = format_log_message('INFO', f"最大重试次数设置为：{len(key_manager.api_keys)}")
+        logger.info(log_msg)
+        if key_manager.api_keys:
+            try:
+                all_models = await GeminiClient.list_available_models(key_manager.api_keys[0])
+                GeminiClient.AVAILABLE_MODELS = [model.replace("models/", "") for model in all_models]
+                log_msg = format_log_message('INFO', "Available models loaded.")
+                logger.info(log_msg)
+            except Exception as e:
+                log_msg = format_log_message('ERROR', f"Failed to load models: {e}")
+                logger.error(log_msg)
+    else:
+        log_msg = format_log_message('ERROR', "No available API keys after reload.")
+        logger.error(log_msg)
+
+
 @app.on_event("startup")
 async def startup_event():
     load_api_mappings()
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
     logger.info(log_msg)
-    available_keys = await check_keys()
-    if available_keys:
-        key_manager.api_keys = available_keys
-        key_manager._reset_key_stack() # 启动时也确保创建随机栈
-        key_manager.show_all_keys()
-        log_msg = format_log_message('INFO', f"可用 API 密钥数量：{len(key_manager.api_keys)}")
-        logger.info(log_msg)
-        # MAX_RETRIES = len(key_manager.api_keys)
-        log_msg = format_log_message('INFO', f"最大重试次数设置为：{len(key_manager.api_keys)}") # 添加日志
-        logger.info(log_msg)
-        if key_manager.api_keys:
-            all_models = await GeminiClient.list_available_models(key_manager.api_keys[0])
-            GeminiClient.AVAILABLE_MODELS = [model.replace(
-                "models/", "") for model in all_models]
-            log_msg = format_log_message('INFO', "Available models loaded.")
-            logger.info(log_msg)
+    await reload_keys()
 
 @app.get("/v1/models", response_model=ModelList)
 def list_models():
@@ -645,8 +659,8 @@ async def login_for_access_token(request: Request):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-def reload_config():
-    global PASSWORD, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, key_manager, global_image_storage
+async def reload_config():
+    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, global_image_storage, key_manager
 
     MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
     MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
@@ -658,8 +672,12 @@ def reload_config():
     if new_api_keys != ",".join(key_manager.api_keys):
         key_manager = APIKeyManager()
         # 可以在这里添加重新检查 key 有效性的逻辑
+        # 调用新的函数来处理密钥和模型的重载
+        await reload_keys()
     # 重新初始化图片存储
     global_image_storage = get_image_storage()
+    log_msg = format_log_message('INFO', "配置已重新加载。")
+    logger.info(log_msg)
 
 
 @app.post("/admin/update")
@@ -673,7 +691,7 @@ async def update_env_vars(request: Request, _: None = Depends(verify_password)):
     for key, value in data.items():
         os.environ[key] = value
     
-    reload_config()
+    await reload_config()
     
     return JSONResponse(content={"message": "设置已更新并立即生效。"})
 # API 映射管理接口
