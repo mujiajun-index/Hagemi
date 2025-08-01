@@ -190,8 +190,8 @@
        .bulk-action-btn:hover {
            background-color: #3498db;
        }
-       /* Image Gallery Styles */
-       #image-gallery-content {
+       /* Media Gallery Styles */
+       #media-gallery-content {
            padding: 1.5em;
            background-color: #fdfdfd;
        }
@@ -214,13 +214,13 @@
            align-items: center;
            gap: 10px;
        }
-       .image-grid {
+       .media-grid {
            display: grid;
            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
            gap: 1.2em;
            margin-bottom: 1.5em;
        }
-       .image-card {
+       .media-card {
            position: relative;
            border: 1px solid var(--border-color);
            border-radius: 8px;
@@ -229,28 +229,28 @@
            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
            background-color: var(--card-background);
        }
-       .image-card:hover {
+       .media-card:hover {
            transform: translateY(-4px);
            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
        }
-       .image-card img {
+       .media-card img, .media-card video {
            width: 100%;
            height: 130px;
            object-fit: cover;
            display: block;
            border-bottom: 1px solid var(--border-color);
        }
-       .image-card-footer {
+       .media-card-footer {
            padding: 0.8em;
            font-size: 0.85em;
        }
-       .image-card-footer p {
+       .media-card-footer p {
            margin: 0 0 0.3em 0;
            white-space: nowrap;
            overflow: hidden;
            text-overflow: ellipsis;
        }
-       .image-actions {
+       .media-actions {
            position: absolute;
            top: 8px;
            right: 8px;
@@ -263,20 +263,20 @@
            transform: translateY(-10px);
            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
        }
-       .image-card:hover .image-actions {
+       .media-card:hover .media-actions {
            opacity: 1;
            transform: translateY(0);
        }
-       .image-actions .action-btn {
+       .media-actions .action-btn {
            color: white;
            font-size: 1em;
            padding: 2px;
            transition: color 0.2s;
        }
-       .image-actions .action-btn:hover {
+       .media-actions .action-btn:hover {
            color: var(--primary-color);
        }
-       .image-checkbox {
+       .media-checkbox {
            position: absolute;
            top: 8px;
            left: 8px;
@@ -325,7 +325,7 @@
            color: #aaa;
            cursor: not-allowed;
        }
-       #gallery-loader {
+       #media-loader {
            text-align: center;
            padding: 3em;
            font-size: 1.1em;
@@ -421,16 +421,26 @@
            background-color: #ddd;
        }
 
-       /* Image Viewer Modal Styles */
-       #image-viewer-modal .modal-content {
+       /* Media Viewer Modal Styles */
+       #media-viewer-modal .modal-content {
            margin: auto;
            display: block;
            width: auto;
            max-width: 90%;
            max-height: 90vh;
+           background: none;
+           box-shadow: none;
+           border: none;
+       }
+       #media-viewer-modal .modal-content img,
+       #media-viewer-modal .modal-content video {
+           max-width: 100%;
+           max-height: 90vh;
+           display: block;
+           margin: auto;
        }
 
-       #image-viewer-modal .modal-close {
+       #media-viewer-modal .modal-close {
            position: absolute;
            top: 15px;
            right: 35px;
@@ -440,15 +450,15 @@
            transition: 0.3s;
        }
 
-       #image-viewer-modal .modal-close:hover,
-       #image-viewer-modal .modal-close:focus {
+       #media-viewer-modal .modal-close:hover,
+       #media-viewer-modal .modal-close:focus {
            color: #bbb;
            text-decoration: none;
            cursor: pointer;
        }
 
-       #image-viewer-modal .prev,
-       #image-viewer-modal .next {
+       #media-viewer-modal .prev,
+       #media-viewer-modal .next {
            cursor: pointer;
            position: absolute;
            top: 50%;
@@ -464,13 +474,13 @@
            -webkit-user-select: none;
        }
 
-       #image-viewer-modal .next {
+       #media-viewer-modal .next {
            right: 0;
            border-radius: 3px 0 0 3px;
        }
 
-       #image-viewer-modal .prev:hover,
-       #image-viewer-modal .next:hover {
+       #media-viewer-modal .prev:hover,
+       #media-viewer-modal .next:hover {
            background-color: rgba(0, 0, 0, 0.8);
        }
        .progress-bar-container {
@@ -559,10 +569,10 @@
 
           <div class="category-card">
               <div class="category-header">
-                  <span>历史图片查看</span>
+                  <span>历史文件查看</span>
                   <span class="toggle-icon">▶</span>
               </div>
-              <div class="category-content" id="image-gallery-content">
+              <div class="category-content" id="media-gallery-content">
                    <div id="storage-details-container" style="margin-bottom: 1.5em; display: none;">
                        <div class="progress-bar-container">
                            <div id="image-count-progress" class="progress-bar"></div>
@@ -583,13 +593,13 @@
                           </label>
                       </div>
                       <div class="gallery-actions">
-                          <button type="button" class="add-btn" id="select-all-images-btn">全选</button>
-                          <button type="button" class="add-btn delete-btn" id="delete-selected-images-btn">删除选中</button>
+                          <button type="button" class="add-btn" id="select-all-media-btn">全选</button>
+                          <button type="button" class="add-btn delete-btn" id="delete-selected-media-btn">删除选中</button>
                       </div>
                   </div>
-                  <div id="gallery-loader">正在加载图片...</div>
-                  <div class="image-grid" id="image-grid-container">
-                      <!-- Images will be loaded here -->
+                  <div id="media-loader">正在加载文件...</div>
+                  <div class="media-grid" id="media-grid-container">
+                      <!-- Media will be loaded here -->
                   </div>
                   <div class="pagination-controls" id="pagination-container">
                       <!-- Pagination will be loaded here -->
@@ -627,10 +637,12 @@
        </div>
    </div>
 
-    <!-- Image Viewer Modal -->
-    <div id="image-viewer-modal" class="modal">
-        <span class="modal-close" id="image-viewer-close">&times;</span>
-        <img class="modal-content" id="image-viewer-img">
+    <!-- Media Viewer Modal -->
+    <div id="media-viewer-modal" class="modal">
+        <span class="modal-close" id="media-viewer-close">&times;</span>
+        <div class="modal-content" id="media-viewer-content">
+            <!-- Content (image or video) will be injected here -->
+        </div>
         <a class="prev">&#10094;</a>
         <a class="next">&#10095;</a>
     </div>
@@ -678,7 +690,7 @@
            // 获取本地存储的详情
            fetchStorageDetails('local');
            // 获取本地存储图片
-           fetchImages(1, 'local', 10);
+           fetchMedia(1, 'local', 10);
 
            document.querySelectorAll('.category-header').forEach(header => {
                 header.addEventListener('click', function() {
@@ -1217,66 +1229,84 @@
             sessionStorage.removeItem('admin-token');
             window.location.href = '/';
         }
-        // --- Image Gallery Logic ---
-        const imageGridContainer = document.getElementById('image-grid-container');
+        // --- Media Gallery Logic ---
+        const mediaGridContainer = document.getElementById('media-grid-container');
         const paginationContainer = document.getElementById('pagination-container');
         const storageTypeSelector = document.getElementById('storage-type-selector');
-        const galleryLoader = document.getElementById('gallery-loader');
-        const selectAllBtn = document.getElementById('select-all-images-btn');
-        const deleteSelectedBtn = document.getElementById('delete-selected-images-btn');
+        const galleryLoader = document.getElementById('media-loader');
+        const selectAllBtn = document.getElementById('select-all-media-btn');
+        const deleteSelectedBtn = document.getElementById('delete-selected-media-btn');
 
         let currentPage = 1;
         let currentPageSize = 10;
         let currentStorageType = 'local';
         let isSelectAll = false;
 
-        async function fetchImages(page = 1, storageType = 'local', pageSize = 10) {
+        async function fetchMedia(page = 1, storageType = 'local', pageSize = 10) {
             currentPage = page;
             currentStorageType = storageType;
             currentPageSize = pageSize;
             galleryLoader.style.display = 'block';
-            imageGridContainer.innerHTML = '';
+            mediaGridContainer.innerHTML = '';
             paginationContainer.innerHTML = '';
-
+ 
             const token = sessionStorage.getItem('admin-token');
             try {
-                const response = await fetch(`/admin/images?storage_type=${storageType}&page=${page}&page_size=${pageSize}`, {
+                const response = await fetch(`/admin/media?storage_type=${storageType}&page=${page}&page_size=${pageSize}`, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (!response.ok) {
-                    throw new Error('获取图片失败: ' + response.statusText);
+                    throw new Error('获取文件失败: ' + response.statusText);
                 }
                 const data = await response.json();
-                renderImageGrid(data.images);
+                renderMediaGrid(data.media_files);
                 renderPagination(data.total, data.page, data.page_size);
             } catch (error) {
-                console.error('Error fetching images:', error);
-                imageGridContainer.innerHTML = '<p>加载图片失败，请稍后重试。</p>';
+                console.error('Error fetching media:', error);
+                mediaGridContainer.innerHTML = '<p>加载文件失败，请稍后重试。</p>';
             } finally {
                 galleryLoader.style.display = 'none';
             }
         }
 
-        function renderImageGrid(images) {
-            if (images.length === 0) {
-                imageGridContainer.innerHTML = '<p>这里还没有图片。</p>';
+        function renderMediaGrid(media_files) {
+            mediaGridContainer.innerHTML = ''; // Clear previous items
+            if (media_files.length === 0) {
+                mediaGridContainer.innerHTML = '<p>这里还没有文件。</p>';
                 return;
             }
-            images.forEach(image => {
+            media_files.forEach(media => {
                 const card = document.createElement('div');
-                card.className = 'image-card';
+                card.className = 'media-card';
+
+                const fileExtension = media.filename.split('.').pop().toLowerCase();
+                let mediaElementHtml;
+
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(fileExtension)) {
+                    mediaElementHtml = `<img src="${media.url}" alt="${media.filename}" loading="lazy" data-media-type="image">`;
+                } else if (['mp4', 'webm', 'ogg', 'mov'].includes(fileExtension)) {
+                    mediaElementHtml = `<video muted loop playsinline loading="lazy" data-media-type="video">
+                                           <source src="${media.url}" type="video/${fileExtension === 'mov' ? 'quicktime' : fileExtension}">
+                                           您的浏览器不支持 video 标签。
+                                       </video>`;
+                } else {
+                    mediaElementHtml = `<div class="file-placeholder" data-media-type="file">
+                                           📄
+                                       </div>`;
+                }
+
                 card.innerHTML = `
-                    <input type="checkbox" class="image-checkbox" data-filename="${image.filename}">
-                    <img src="${image.url}" alt="${image.filename}" loading="lazy">
-                    <div class="image-actions">
-                        <button type="button" class="action-btn" title="复制链接" onclick="copyToClipboard(this, '${image.url}')">📋</button>
+                    <input type="checkbox" class="media-checkbox" data-filename="${media.filename}">
+                    ${mediaElementHtml}
+                    <div class="media-actions">
+                        <button type="button" class="action-btn" title="复制链接" onclick="copyToClipboard(this, '${media.url}')">📋</button>
                     </div>
-                    <div class="image-card-footer">
-                        <p title="${image.filename}">${image.filename}</p>
-                        <p style="font-size: 0.9em; color: #666;">${new Date(image.created_at).toLocaleString()}</p>
+                    <div class="media-card-footer">
+                        <p title="${media.filename}">${media.filename}</p>
+                        <p style="font-size: 0.9em; color: #666;">${new Date(media.created_at).toLocaleString()}</p>
                     </div>
                 `;
-                imageGridContainer.appendChild(card);
+                mediaGridContainer.appendChild(card);
             });
         }
 
@@ -1304,14 +1334,14 @@
             selectElement.value = currentPageSize;
             selectElement.addEventListener('change', (event) => {
                 const newSize = parseInt(event.target.value, 10);
-                fetchImages(1, currentStorageType, newSize);
+                fetchMedia(1, currentStorageType, newSize);
             });
             
             // Pagination buttons
             const prevBtn = document.createElement('button');
             prevBtn.textContent = '上一页';
             prevBtn.disabled = page === 1;
-            prevBtn.onclick = () => fetchImages(page - 1, currentStorageType, currentPageSize);
+            prevBtn.onclick = () => fetchMedia(page - 1, currentStorageType, currentPageSize);
 
             const pageInfo = document.createElement('span');
             pageInfo.textContent = `第 ${page} / ${totalPages} 页 (共 ${total} 项)`;
@@ -1319,7 +1349,7 @@
             const nextBtn = document.createElement('button');
             nextBtn.textContent = '下一页';
             nextBtn.disabled = page === totalPages;
-            nextBtn.onclick = () => fetchImages(page + 1, currentStorageType, currentPageSize);
+            nextBtn.onclick = () => fetchMedia(page + 1, currentStorageType, currentPageSize);
 
             // Append elements
             paginationContainer.appendChild(prevBtn);
@@ -1379,31 +1409,31 @@
         }
 
         storageTypeSelector.addEventListener('change', (event) => {
-            fetchImages(1, event.target.value, currentPageSize);
+            fetchMedia(1, event.target.value, currentPageSize);
             fetchStorageDetails(event.target.value);
         });
 
 
         selectAllBtn.addEventListener('click', () => {
             isSelectAll = !isSelectAll;
-            document.querySelectorAll('.image-checkbox').forEach(checkbox => {
+            document.querySelectorAll('.media-checkbox').forEach(checkbox => {
                 checkbox.checked = isSelectAll;
             });
             selectAllBtn.textContent = isSelectAll ? '取消全选' : '全选';
         });
 
         deleteSelectedBtn.addEventListener('click', async () => {
-            const selectedFiles = Array.from(document.querySelectorAll('.image-checkbox:checked')).map(cb => cb.dataset.filename);
+            const selectedFiles = Array.from(document.querySelectorAll('.media-checkbox:checked')).map(cb => cb.dataset.filename);
             if (selectedFiles.length === 0) {
-                alert('请先选择要删除的图片');
+                alert('请先选择要删除的文件');
                 return;
             }
-
-            const confirmed = await showConfirm('确认删除', `您确定要删除选中的 ${selectedFiles.length} 张图片吗？此操作不可恢复。`);
+ 
+            const confirmed = await showConfirm('确认删除', `您确定要删除选中的 ${selectedFiles.length} 个文件吗？此操作不可恢复。`);
             if (confirmed) {
                 const token = sessionStorage.getItem('admin-token');
                 try {
-                    const response = await fetch(`/admin/images?storage_type=${currentStorageType}`, {
+                    const response = await fetch(`/admin/media?storage_type=${currentStorageType}`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': 'Bearer ' + token,
@@ -1414,10 +1444,10 @@
                     const result = await response.json();
                     alert(result.message);
                     if (result.success || response.ok) {
-                        fetchImages(currentPage, currentStorageType, currentPageSize); // Refresh the gallery
+                        fetchMedia(currentPage, currentStorageType, currentPageSize); // Refresh the gallery
                     }
                 } catch (error) {
-                    console.error('Error deleting images:', error);
+                    console.error('Error deleting media:', error);
                     alert('删除失败，请查看控制台获取更多信息。');
                 }
             }
@@ -1426,61 +1456,80 @@
         // Initial load
         document.querySelectorAll('.category-header').forEach(header => {
             header.addEventListener('click', function() {
-                if (this.nextElementSibling.id === 'image-gallery-content' && !imageGridContainer.hasChildNodes()) {
-                    fetchImages(1, 'local', 10);
+                if (this.nextElementSibling.id === 'media-gallery-content' && !mediaGridContainer.hasChildNodes()) {
+                    fetchMedia(1, 'local', 10);
                 }
             });
         });
 
-        // --- Image Viewer Modal Logic ---
-        const imageViewerModal = document.getElementById('image-viewer-modal');
-        const imageViewerImg = document.getElementById('image-viewer-img');
-        const imageViewerClose = document.getElementById('image-viewer-close');
-        const prevBtn = document.querySelector('#image-viewer-modal .prev');
-        const nextBtn = document.querySelector('#image-viewer-modal .next');
-
-        let currentImageIndex = 0;
-        let images = [];
-
-        function openImageViewer(index) {
-            currentImageIndex = index;
-            imageViewerImg.src = images[currentImageIndex];
-            imageViewerModal.style.display = "block";
-        }
-
-        function closeImageViewer() {
-            imageViewerModal.style.display = "none";
-        }
-
-        function changeImage(step) {
-            currentImageIndex += step;
-            if (currentImageIndex >= images.length) {
-                currentImageIndex = 0;
+        // --- Media Viewer Modal Logic ---
+        const mediaViewerModal = document.getElementById('media-viewer-modal');
+        const mediaViewerContent = document.getElementById('media-viewer-content');
+        const mediaViewerClose = document.getElementById('media-viewer-close');
+        const viewerPrevBtn = document.querySelector('#media-viewer-modal .prev');
+        const viewerNextBtn = document.querySelector('#media-viewer-modal .next');
+ 
+        let currentMediaIndex = 0;
+        let mediaItems = []; // Will store {url, type}
+ 
+        function openMediaViewer(index) {
+            currentMediaIndex = index;
+            const item = mediaItems[currentMediaIndex];
+            mediaViewerContent.innerHTML = ''; // Clear previous content
+ 
+            if (item.type === 'image') {
+                const img = document.createElement('img');
+                img.src = item.url;
+                mediaViewerContent.appendChild(img);
+            } else if (item.type === 'video') {
+                const video = document.createElement('video');
+                video.src = item.url;
+                video.controls = true;
+                video.autoplay = true;
+                mediaViewerContent.appendChild(video);
             }
-            if (currentImageIndex < 0) {
-                currentImageIndex = images.length - 1;
-            }
-            imageViewerImg.src = images[currentImageIndex];
+            mediaViewerModal.style.display = "block";
         }
-
-        imageViewerClose.onclick = closeImageViewer;
-        prevBtn.onclick = () => changeImage(-1);
-        nextBtn.onclick = () => changeImage(1);
-
-        // Close modal if clicked outside the image
-        imageViewerModal.onclick = function(event) {
-            if (event.target === imageViewerModal) {
-                closeImageViewer();
+ 
+        function closeMediaViewer() {
+            mediaViewerModal.style.display = "none";
+            mediaViewerContent.innerHTML = ''; // Stop video playback etc.
+        }
+ 
+        function changeMedia(step) {
+            currentMediaIndex += step;
+            if (currentMediaIndex >= mediaItems.length) {
+                currentMediaIndex = 0;
+            }
+            if (currentMediaIndex < 0) {
+                currentMediaIndex = mediaItems.length - 1;
+            }
+            openMediaViewer(currentMediaIndex);
+        }
+ 
+        mediaViewerClose.onclick = closeMediaViewer;
+        viewerPrevBtn.onclick = () => changeMedia(-1);
+        viewerNextBtn.onclick = () => changeMedia(1);
+ 
+        mediaViewerModal.onclick = function(event) {
+            if (event.target === mediaViewerModal || event.target === mediaViewerContent) {
+                closeMediaViewer();
             }
         }
-
-        // Add click listener to images
-        document.getElementById('image-grid-container').addEventListener('click', function(event) {
-            if (event.target.tagName === 'IMG') {
-                const allImages = Array.from(document.querySelectorAll('#image-grid-container img'));
-                images = allImages.map(img => img.src);
-                const clickedIndex = images.indexOf(event.target.src);
-                openImageViewer(clickedIndex);
+ 
+        mediaGridContainer.addEventListener('click', function(event) {
+            const target = event.target;
+            if (target.matches('img[data-media-type="image"], video[data-media-type="video"]')) {
+                const allMediaElements = Array.from(mediaGridContainer.querySelectorAll('img[data-media-type="image"], video[data-media-type="video"]'));
+                mediaItems = allMediaElements.map(el => ({
+                    url: el.src || el.querySelector('source').src,
+                    type: el.dataset.mediaType
+                }));
+                const clickedUrl = target.src || (target.querySelector('source') ? target.querySelector('source').src : null);
+                const clickedIndex = mediaItems.findIndex(item => item.url === clickedUrl);
+                if (clickedIndex !== -1) {
+                    openMediaViewer(clickedIndex);
+                }
             }
         });
        function fetchStorageDetails(storageType) {
@@ -1532,7 +1581,7 @@
        document.querySelectorAll('input[name="storage-type"]').forEach(radio => {
            radio.addEventListener('change', (event) => {
                const selectedStorage = event.target.value;
-               fetchImages(1, parseInt(document.getElementById('page-size-selector').value), selectedStorage);
+               fetchMedia(1, selectedStorage, parseInt(document.getElementById('page-size').value));
                fetchStorageDetails(selectedStorage);
            });
        });

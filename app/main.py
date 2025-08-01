@@ -427,27 +427,27 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ErrorResponse(message=str(exc), type="internal_error").dict())
 
 
-# 处理内存图片访问的路由
-@app.get("/memory-images/{filename}")
-async def get_memory_image(filename: str):
+# 处理内存文件访问的路由
+@app.get("/memory-media/{filename}")
+async def get_memory_media(filename: str):
     # 使用全局图片存储实例
     storage = global_image_storage
     # 检查是否是内存存储实例
-    if hasattr(storage, 'get_image'):
-        # 从内存中获取图片数据
+    if hasattr(storage, 'get_image'): # The method in storage is still called get_image
+        # 从内存中获取文件数据
         base64_data, mime_type = storage.get_image(filename)
-        # 检查图片数据是否存在
+        # 检查文件数据是否存在
         if base64_data is None:
-            raise HTTPException(status_code=404, detail="图片不存在")
+            raise HTTPException(status_code=404, detail="文件不存在")
         
-        # 解码图片数据
-        image_data = base64.b64decode(base64_data)
-        if image_data:
-            # 返回图片数据
-            return StreamingResponse(io.BytesIO(image_data), media_type=mime_type)
+        # 解码文件数据
+        file_data = base64.b64decode(base64_data)
+        if file_data:
+            # 返回文件数据
+            return StreamingResponse(io.BytesIO(file_data), media_type=mime_type)
     
-    # 如果图片不存在或不是内存存储，返回404错误
-    raise HTTPException(status_code=404, detail="图片不存在")
+    # 如果文件不存在或不是内存存储，返回404错误
+    raise HTTPException(status_code=404, detail="文件不存在")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -906,22 +906,27 @@ async def check_gemini_key(payload: dict = Body(...)):
         logger.error(f"检查密钥时发生未知错误: {e}")
         return JSONResponse(status_code=500, content={"valid": False, "message": f"检查密钥时发生内部错误: {str(e)}"})
 
-@app.get("/admin/images", dependencies=[Depends(verify_password)])
-async def list_images(storage_type: str = 'local', page: int = 1, page_size: int = 10):
+@app.get("/admin/media", dependencies=[Depends(verify_password)])
+async def list_media(storage_type: str = 'local', page: int = 1, page_size: int = 10):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
            (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
             storage = global_image_storage
         else:
             storage = get_image_storage(storage_type)
+        
+        # The storage method `list_images` returns a dict with an 'images' key.
+        # We need to adapt this to return 'media_files' for the frontend.
         result = storage.list_images(page=page, page_size=page_size)
+        result['media_files'] = result.pop('images')
         return result
+
     except Exception as e:
-        logger.error(f"获取图片列表失败: {e}")
+        logger.error(f"获取媒体文件列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/admin/images", dependencies=[Depends(verify_password)])
-async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
+@app.delete("/admin/media", dependencies=[Depends(verify_password)])
+async def delete_media(storage_type: str, filenames: List[str] = Body(...)):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
            (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
@@ -937,11 +942,11 @@ async def delete_images(storage_type: str, filenames: List[str] = Body(...)):
                 failed_files.append(filename)
         
         if failed_files:
-            return {"message": f"成功删除 {success_count} 张图片，{len(failed_files)} 张失败: {', '.join(failed_files)}", "success": False}
+            return {"message": f"成功删除 {success_count} 个文件，{len(failed_files)} 个失败: {', '.join(failed_files)}", "success": False}
         
-        return {"message": f"成功删除 {success_count} 张图片", "success": True}
+        return {"message": f"成功删除 {success_count} 个文件", "success": True}
     except Exception as e:
-        logger.error(f"批量删除图片失败: {e}")
+        logger.error(f"批量删除文件失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/admin/storage_details", dependencies=[Depends(verify_password)])
