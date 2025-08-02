@@ -945,7 +945,8 @@ function loadAccessKeys() {
     .then(data => {
         const tbody = document.querySelector('#access-keys-table tbody');
         tbody.innerHTML = '';
-        Object.values(data).forEach((key, index) => {
+        Object.keys(data).forEach((key_id, index) => {
+           const key = data[key_id];
             const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
             const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit}` : '无限制';
             const status = key.is_active ? '有效' : '无效';
@@ -958,8 +959,8 @@ function loadAccessKeys() {
                     <td>${expires}</td>
                     <td>${status}</td>
                     <td>
-                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.name}')">✏️</button>
-                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.name}')">🗑️</button>
+                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')">✏️</button>
+                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')">🗑️</button>
                     </td>
                 </tr>
             `;
@@ -968,17 +969,76 @@ function loadAccessKeys() {
     });
 }
 
+function showAccessKeyPrompt(title, keyData = {}) {
+    return new Promise(resolve => {
+        resolvePromise = resolve;
+        modalTitle.textContent = title;
+
+        // Hide other containers
+        modalText.style.display = 'none';
+        modalSingleInputContainer.style.display = 'none';
+        modalMappingContainer.style.display = 'none';
+        
+        // Show the access key container
+        const accessKeyContainer = document.getElementById('modal-access-key-container');
+        accessKeyContainer.style.display = 'block';
+
+        // Get input elements
+        const nameInput = document.getElementById('modal-input-name');
+        const usageLimitInput = document.getElementById('modal-input-usage-limit');
+        const expiresAtInput = document.getElementById('modal-input-expires-at');
+        const isActiveContainer = document.getElementById('modal-is-active-container');
+        const isActiveInput = document.getElementById('modal-input-is-active');
+
+        // Populate with existing data if available (for editing)
+        nameInput.value = keyData.name || '';
+        usageLimitInput.value = keyData.usage_limit || '';
+        expiresAtInput.value = keyData.expires_at ? new Date(keyData.expires_at * 1000).toISOString().slice(0, 19).replace('T', ' ') : '';
+        
+        if (keyData.hasOwnProperty('is_active')) {
+            isActiveContainer.style.display = 'block';
+            isActiveInput.checked = keyData.is_active;
+        } else {
+            isActiveContainer.style.display = 'none';
+        }
+
+        nameInput.focus();
+
+        modalConfirmBtn.onclick = () => {
+            const name = nameInput.value.trim();
+            const usage_limit = usageLimitInput.value.trim();
+            const expires_at = expiresAtInput.value.trim();
+
+            if (resolvePromise) {
+                resolve({
+                    name: name,
+                    usage_limit: usage_limit ? parseInt(usage_limit, 10) : null,
+                    expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
+                    is_active: keyData.hasOwnProperty('is_active') ? isActiveInput.checked : true
+                });
+            }
+            hideModal();
+        };
+
+        modalCancelBtn.onclick = () => {
+            if (resolvePromise) resolve(null);
+            hideModal();
+        };
+
+        showModal();
+    });
+}
+
 async function addAccessKey() {
-    const name = await showPrompt("添加新访问密钥", "请输入密钥名称 (可选):");
-    const usage_limit = await showPrompt("添加新访问密钥", "请输入使用次数限制 (可选，留空表示无限制):");
-    const expires_at = await showPrompt("添加新访问密钥", "请输入过期时间 (可选，格式: YYYY-MM-DD HH:MM:SS):");
+    const result = await showAccessKeyPrompt("添加新访问密钥");
+    if (!result) return;
 
     const key = 'sk-' + Math.random().toString(36).substr(2);
     const data = {
         key: key,
-        name: name,
-        usage_limit: usage_limit ? parseInt(usage_limit) : null,
-        expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
+        name: result.name,
+        usage_limit: result.usage_limit,
+        expires_at: result.expires_at,
         is_active: true,
         usage_count: 0
     };
@@ -996,20 +1056,24 @@ async function addAccessKey() {
 }
 
 async function editAccessKey(key) {
-    const access_keys = await fetch('/admin/keys', { headers: { 'Authorization': 'Bearer ' + token } }).then(res => res.json());
+    const access_keys_response = await fetch('/admin/keys', { headers: { 'Authorization': 'Bearer ' + token } });
+    const access_keys = await access_keys_response.json();
     const key_data = access_keys[key];
 
-    const name = await showPrompt("编辑访问密钥", "请输入密钥名称:", key_data.name || '');
-    const usage_limit = await showPrompt("编辑访问密钥", "请输入使用次数限制:", key_data.usage_limit || '');
-    const expires_at = await showPrompt("编辑访问密钥", "请输入过期时间:", key_data.expires_at ? new Date(key_data.expires_at * 1000).toISOString().slice(0, 19).replace('T', ' ') : '');
-    const is_active = await showConfirm("编辑访问密钥", `密钥当前状态: ${key_data.is_active ? '有效' : '无效'}. 要切换状态吗?`);
+    if (!key_data) {
+        alert('找不到要编辑的密钥。');
+        return;
+    }
+
+    const result = await showAccessKeyPrompt("编辑访问密钥", key_data);
+    if (!result) return;
 
     const data = {
         key: key,
-        name: name,
-        usage_limit: usage_limit ? parseInt(usage_limit) : null,
-        expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
-        is_active: is_active,
+        name: result.name,
+        usage_limit: result.usage_limit,
+        expires_at: result.expires_at,
+        is_active: result.is_active,
         usage_count: key_data.usage_count
     };
 

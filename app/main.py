@@ -763,27 +763,32 @@ async def get_keys():
 @app.post("/admin/keys", dependencies=[Depends(verify_password)])
 async def create_key(key: AccessKey):
     access_keys = get_access_keys()
-    if key.name in access_keys:
-        raise HTTPException(status_code=400, detail="密钥名称已存在")
-    access_keys[key.name] = key.dict()
+    if key.key in access_keys:
+        raise HTTPException(status_code=400, detail="密钥已存在")
+    access_keys[key.key] = key.dict()
     save_access_keys()
     return JSONResponse(content={"message": "密钥创建成功"})
 
-@app.put("/admin/keys/{key_name}", dependencies=[Depends(verify_password)])
-async def update_key(key_name: str, key_update: AccessKey):
+@app.put("/admin/keys/{key}", dependencies=[Depends(verify_password)])
+async def update_key(key: str, key_update: AccessKey):
     access_keys = get_access_keys()
-    if key_name not in access_keys:
-        raise HTTPException(status_code=404, detail="密钥不存在")
-    access_keys[key_name] = key_update.dict()
+    if key not in access_keys:
+        raise HTTPException(status_code=404, detail="要更新的密钥不存在")
+
+    # Key本身不应改变，但如果前端发送的key与AccessKey对象中的不一致，则以URL中的为准
+    key_update.key = key
+    
+    # 更新字典
+    access_keys[key] = key_update.dict()
     save_access_keys()
     return JSONResponse(content={"message": "密钥更新成功"})
 
-@app.delete("/admin/keys/{key_name}", dependencies=[Depends(verify_password)])
-async def delete_key(key_name: str):
+@app.delete("/admin/keys/{key}", dependencies=[Depends(verify_password)])
+async def delete_key(key: str):
     access_keys = get_access_keys()
-    if key_name not in access_keys:
+    if key not in access_keys:
         raise HTTPException(status_code=404, detail="密钥不存在")
-    del access_keys[key_name]
+    del access_keys[key]
     save_access_keys()
     return JSONResponse(content={"message": "密钥删除成功"})
 
