@@ -122,6 +122,7 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
 
         modalSingleInputContainer.style.display = 'block';
         modalMappingContainer.style.display = 'none';
+        document.getElementById('modal-access-key-container').style.display = 'none';
         
         modalInput.value = defaultValue;
         modalInput.type = inputType;
