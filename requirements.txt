@@ -7,3 +7,4 @@ apscheduler
 qiniu
 cos-python-sdk-v5
 python-jose[cryptography]
+jinja2
