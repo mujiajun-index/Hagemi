@@ -245,6 +245,8 @@ async def verify_password(request: Request):
                         access_keys[token] = key.dict()
                         save_access_keys()
                     return True
+                else:
+                    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key is lose efficacy")
 
         # 尝试JWT Token验证
         try:
