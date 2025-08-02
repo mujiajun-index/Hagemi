@@ -273,7 +273,7 @@ async def verify_password(request: Request):
         return False
 
     if body and 'messages' in body:
-        messages = request_json['messages']
+        messages = body['messages']
         if messages and isinstance(messages, list):
             last_message = messages[-1]
             if isinstance(last_message, dict) and 'content' in last_message:
