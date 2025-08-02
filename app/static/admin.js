@@ -303,6 +303,7 @@ async function saveGroupSettings(groupContentElement) {
 }
 
 let currentGeminiKeys = [];
+let allAccessKeys = {};
 
 // The function now accepts the environment data as an argument
 function loadGeminiKeys(data) {
@@ -997,6 +998,7 @@ function loadAccessKeys() {
     })
     .then(response => response.json())
     .then(data => {
+        allAccessKeys = data; // Store all keys for validation
         const tbody = document.querySelector('#access-keys-table tbody');
         tbody.innerHTML = '';
         Object.keys(data).forEach((key_id, index) => {
@@ -1088,6 +1090,16 @@ async function addAccessKey() {
     const result = await showAccessKeyPrompt("添加新访问密钥");
     if (!result) return;
 
+    if (!result.name) {
+        alert('密钥名称不能为空。');
+        return;
+    }
+    const nameExists = Object.values(allAccessKeys).some(k => k.name === result.name);
+    if (nameExists) {
+        alert('该密钥名称已存在，请使用其他名称。');
+        return;
+    }
+
     const data = {
         name: result.name,
         usage_limit: result.usage_limit,
@@ -1123,6 +1135,16 @@ async function editAccessKey(key) {
 
     const result = await showAccessKeyPrompt("编辑访问密钥", key_data);
     if (!result) return;
+
+    if (!result.name) {
+        alert('密钥名称不能为空。');
+        return;
+    }
+    const nameExists = Object.values(allAccessKeys).some(k => k.key !== key && k.name === result.name);
+    if (nameExists) {
+        alert('该密钥名称已存在，请使用其他名称。');
+        return;
+    }
 
     const data = {
         key: key,
