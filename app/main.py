@@ -61,7 +61,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 from .config_manager import (
     load_api_mappings, save_api_mappings, get_api_mappings,
-    load_access_keys, save_access_keys, get_access_keys
+    load_access_keys, save_access_keys, get_access_keys, access_keys_lock
 )
 
 # 挂载静态文件目录
@@ -229,9 +229,10 @@ async def verify_password(request: Request):
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key usage limit exceeded")
                     
                     # 更新使用次数
-                    key.usage_count += 1
-                    access_keys[token] = key.dict()
-                    save_access_keys()
+                    with access_keys_lock:
+                        key.usage_count += 1
+                        access_keys[token] = key.dict()
+                        save_access_keys()
                     return True
 
         # 尝试JWT Token验证
@@ -772,8 +773,9 @@ async def create_key(key_create: AccessKeyCreate):
         **key_create.dict()
     )
     
-    access_keys[new_key.key] = new_key.dict()
-    save_access_keys()
+    with access_keys_lock:
+        access_keys[new_key.key] = new_key.dict()
+        save_access_keys()
     return JSONResponse(content={"message": "密钥创建成功"})
 
 @app.put("/admin/keys/{key}", dependencies=[Depends(verify_password)])
@@ -786,8 +788,9 @@ async def update_key(key: str, key_update: AccessKey):
     key_update.key = key
     
     # 更新字典
-    access_keys[key] = key_update.dict()
-    save_access_keys()
+    with access_keys_lock:
+        access_keys[key] = key_update.dict()
+        save_access_keys()
     return JSONResponse(content={"message": "密钥更新成功"})
 
 @app.delete("/admin/keys/{key}", dependencies=[Depends(verify_password)])
@@ -795,8 +798,9 @@ async def delete_key(key: str):
     access_keys = get_access_keys()
     if key not in access_keys:
         raise HTTPException(status_code=404, detail="密钥不存在")
-    del access_keys[key]
-    save_access_keys()
+    with access_keys_lock:
+        del access_keys[key]
+        save_access_keys()
     return JSONResponse(content={"message": "密钥删除成功"})
 
 # --- 路由注册 ---

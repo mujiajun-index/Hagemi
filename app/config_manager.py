@@ -24,18 +24,13 @@ def load_access_keys():
         save_access_keys()
 
 def save_access_keys():
-    """将当前的访问密钥保存到 JSON 文件（线程安全）"""
-    if access_keys_lock.acquire(blocking=False):
-        try:
-            # 为了确保数据一致性，在写入时复制一份
-            keys_to_save = access_keys.copy()
-            with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(keys_to_save, f, indent=4, ensure_ascii=False)
-            logger.info("访问密钥已成功同步到文件。")
-        finally:
-            access_keys_lock.release()
-    else:
-        logger.info("另一个线程正在同步访问密钥，跳过本次操作。")
+    """
+    将当前的访问密钥保存到 JSON 文件。
+    注意：此函数不处理锁，调用方必须确保在线程安全的环境中调用。
+    """
+    with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(access_keys, f, indent=4, ensure_ascii=False)
+    logger.info("访问密钥已成功保存。")
 
 def get_access_keys():
     """返回当前的访问密钥"""
