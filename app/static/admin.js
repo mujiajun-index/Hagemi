@@ -1035,14 +1035,11 @@ async function addAccessKey() {
     const result = await showAccessKeyPrompt("添加新访问密钥");
     if (!result) return;
 
-    const key = 'sk-' + Math.random().toString(36).substr(2);
     const data = {
-        key: key,
         name: result.name,
         usage_limit: result.usage_limit,
         expires_at: result.expires_at,
-        is_active: true,
-        usage_count: 0
+        is_active: true
     };
 
     fetch('/admin/keys', {
@@ -1054,7 +1051,11 @@ async function addAccessKey() {
         body: JSON.stringify(data)
     })
     .then(handleApiResponse)
-    .then(loadAccessKeys);
+    .then(loadAccessKeys)
+    .catch(error => {
+        console.error('添加访问密钥失败:', error);
+        alert('添加访问密钥失败: ' + error.message);
+    });
 }
 
 async function editAccessKey(key) {

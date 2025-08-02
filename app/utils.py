@@ -1,4 +1,5 @@
 import random
+import string
 from fastapi import HTTPException, Request
 import time
 import re
@@ -298,3 +299,24 @@ def protect_from_abuse(request: Request, max_requests_per_minute: int = 30, max_
             "message": "Too many requests per minute", "limit": max_requests_per_minute})
     if day_count > max_requests_per_day_per_ip:
         raise HTTPException(status_code=429, detail={"message": "Too many requests per day from this IP", "limit": max_requests_per_day_per_ip})
+def generate_random_alphanumeric(length: int) -> str:
+    """
+    生成一个固定长度的随机字母数字字符串。
+
+    Args:
+        length: 期望生成的随机字符串的长度。必须是非负整数。
+
+    Returns:
+        生成的随机字母数字字符串。
+    
+    Raises:
+        ValueError: 如果 length 不是一个非负整数。
+    """
+    if not isinstance(length, int) or length < 0:
+        raise ValueError("Length must be a non-negative integer.")
+    
+    if length == 0:
+        return ""
+        
+    alphanumeric_chars = string.ascii_letters + string.digits
+    return ''.join(random.choices(alphanumeric_chars, k=length))

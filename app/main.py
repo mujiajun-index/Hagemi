@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from .models import AccessKey, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
+from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric
 import os
 import json
 import asyncio
@@ -755,17 +755,24 @@ async def get_storage_details(storage_type: str = 'local'):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @app.get("/admin/keys", dependencies=[Depends(verify_password)])
 async def get_keys():
     return get_access_keys()
 
 @app.post("/admin/keys", dependencies=[Depends(verify_password)])
-async def create_key(key: AccessKey):
+async def create_key(key_create: AccessKeyCreate):
     access_keys = get_access_keys()
-    if key.key in access_keys:
-        raise HTTPException(status_code=400, detail="密钥已存在")
-    access_keys[key.key] = key.dict()
+    new_key_str = "sk-" + generate_random_alphanumeric(64)
+    
+    while new_key_str in access_keys:
+        new_key_str = "sk-" + generate_random_alphanumeric(64)
+
+    new_key = AccessKey(
+        key=new_key_str,
+        **key_create.dict()
+    )
+    
+    access_keys[new_key.key] = new_key.dict()
     save_access_keys()
     return JSONResponse(content={"message": "密钥创建成功"})
 
