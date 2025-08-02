@@ -1050,7 +1050,15 @@ function showAccessKeyPrompt(title, keyData = {}) {
         // Populate with existing data if available (for editing)
         nameInput.value = keyData.name || '';
         usageLimitInput.value = keyData.usage_limit || '';
-        expiresAtInput.value = keyData.expires_at ? new Date(keyData.expires_at * 1000).toISOString().slice(0, 19).replace('T', ' ') : '';
+        if (keyData.expires_at) {
+            const now = new Date();
+            const expiresDate = new Date(keyData.expires_at * 1000);
+            const hoursRemaining = (expiresDate - now) / (1000 * 60 * 60);
+            // 只显示正的小时数，四舍五入到整数
+            expiresAtInput.value = hoursRemaining > 0 ? Math.round(hoursRemaining) : '';
+        } else {
+            expiresAtInput.value = '';
+        }
         
         if (keyData.hasOwnProperty('is_active')) {
             isActiveContainer.style.display = 'block';
@@ -1064,13 +1072,21 @@ function showAccessKeyPrompt(title, keyData = {}) {
         modalConfirmBtn.onclick = () => {
             const name = nameInput.value.trim();
             const usage_limit = usageLimitInput.value.trim();
-            const expires_at = expiresAtInput.value.trim();
+            const hours = expiresAtInput.value.trim();
 
             if (resolvePromise) {
+                let expires_at_timestamp = null;
+                if (hours && !isNaN(hours) && parseInt(hours, 10) > 0) {
+                    const now = new Date();
+                    // Add hours to current time
+                    const futureDate = new Date(now.getTime() + parseInt(hours, 10) * 60 * 60 * 1000);
+                    expires_at_timestamp = Math.floor(futureDate.getTime() / 1000);
+                }
+
                 resolve({
                     name: name,
                     usage_limit: usage_limit ? parseInt(usage_limit, 10) : null,
-                    expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
+                    expires_at: expires_at_timestamp,
                     is_active: keyData.hasOwnProperty('is_active') ? isActiveInput.checked : true
                 });
             }
