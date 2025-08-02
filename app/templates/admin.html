@@ -166,12 +166,13 @@
                    <label for="modal-input-expires-at" style="display:block; margin-top:1em; font-weight: bold;">过期时间</label>
                    <input type="text" id="modal-input-expires-at" class="modal-input" placeholder="格式: YYYY-MM-DD HH:MM:SS, 留空永不过期">
 
-                   <div id="modal-is-active-container" style="display: none; margin-top: 1em;">
-                       <label style="display: flex; align-items: center;">
-                           <input type="checkbox" id="modal-input-is-active" style="margin-right: 8px;">
-                           是否有效
-                       </label>
-                   </div>
+                   <div id="modal-is-active-container" class="modal-switch-container" style="display: none;">
+                        <span>是否启用</span>
+                        <label class="switch">
+                            <input type="checkbox" id="modal-input-is-active">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                </div>
            </div>
            <div class="modal-footer">
