@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     
     loadApiMappings();
+    loadAccessKeys();
     // loadGeminiKeys(); // This call is moved into the main fetch chain
     // 获取本地存储的详情
     fetchStorageDetails('local');
@@ -935,3 +936,103 @@ document.querySelectorAll('input[name="storage-type"]').forEach(radio => {
         fetchStorageDetails(selectedStorage);
     });
 });
+
+function loadAccessKeys() {
+    fetch('/admin/keys', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.querySelector('#access-keys-table tbody');
+        tbody.innerHTML = '';
+        Object.values(data).forEach((key, index) => {
+            const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
+            const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit}` : '无限制';
+            const status = key.is_active ? '有效' : '无效';
+            const row = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${key.name || ''}</td>
+                    <td>${key.key}</td>
+                    <td>${usage}</td>
+                    <td>${expires}</td>
+                    <td>${status}</td>
+                    <td>
+                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')">✏️</button>
+                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')">🗑️</button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    });
+}
+
+async function addAccessKey() {
+    const name = await showPrompt("添加新访问密钥", "请输入密钥名称 (可选):");
+    const usage_limit = await showPrompt("添加新访问密钥", "请输入使用次数限制 (可选，留空表示无限制):");
+    const expires_at = await showPrompt("添加新访问密钥", "请输入过期时间 (可选，格式: YYYY-MM-DD HH:MM:SS):");
+
+    const key = 'sk-' + Math.random().toString(36).substr(2);
+    const data = {
+        key: key,
+        name: name,
+        usage_limit: usage_limit ? parseInt(usage_limit) : null,
+        expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
+        is_active: true,
+        usage_count: 0
+    };
+
+    fetch('/admin/keys', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(data)
+    })
+    .then(handleApiResponse)
+    .then(loadAccessKeys);
+}
+
+async function editAccessKey(key) {
+    const access_keys = await fetch('/admin/keys', { headers: { 'Authorization': 'Bearer ' + token } }).then(res => res.json());
+    const key_data = access_keys[key];
+
+    const name = await showPrompt("编辑访问密钥", "请输入密钥名称:", key_data.name || '');
+    const usage_limit = await showPrompt("编辑访问密钥", "请输入使用次数限制:", key_data.usage_limit || '');
+    const expires_at = await showPrompt("编辑访问密钥", "请输入过期时间:", key_data.expires_at ? new Date(key_data.expires_at * 1000).toISOString().slice(0, 19).replace('T', ' ') : '');
+    const is_active = await showConfirm("编辑访问密钥", `密钥当前状态: ${key_data.is_active ? '有效' : '无效'}. 要切换状态吗?`);
+
+    const data = {
+        key: key,
+        name: name,
+        usage_limit: usage_limit ? parseInt(usage_limit) : null,
+        expires_at: expires_at ? new Date(expires_at).getTime() / 1000 : null,
+        is_active: is_active,
+        usage_count: key_data.usage_count
+    };
+
+    fetch(`/admin/keys/${key}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(data)
+    })
+    .then(handleApiResponse)
+    .then(loadAccessKeys);
+}
+
+async function deleteAccessKey(key) {
+    const confirmed = await showConfirm("确认删除", `确定要删除密钥 ${key} 吗?`);
+    if (!confirmed) return;
+
+    fetch(`/admin/keys/${key}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(handleApiResponse)
+    .then(loadAccessKeys);
+}

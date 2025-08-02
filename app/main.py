@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from .models import ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
+from .models import AccessKey, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
 from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message
 import os
@@ -59,7 +59,10 @@ sys.excepthook = handle_exception
 app = FastAPI()
 templates = Jinja2Templates(directory="app/templates")
 
-from .config_manager import load_api_mappings, save_api_mappings, get_api_mappings
+from .config_manager import (
+    load_api_mappings, save_api_mappings, get_api_mappings,
+    load_access_keys, save_access_keys, get_access_keys
+)
 
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -191,6 +194,7 @@ async def reload_keys():
 @app.on_event("startup")
 async def startup_event():
     load_api_mappings()
+    load_access_keys()
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
     logger.info(log_msg)
     await reload_keys()
@@ -211,7 +215,25 @@ async def verify_password(request: Request):
 
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        
+
+        # 访问密钥验证
+        if token.startswith("sk-"):
+            access_keys = get_access_keys()
+            key_data = access_keys.get(token)
+            if key_data:
+                key = AccessKey(**key_data)
+                if key.is_active:
+                    if key.expires_at and datetime.now().timestamp() > key.expires_at:
+                        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key expired")
+                    if key.usage_limit is not None and key.usage_count >= key.usage_limit:
+                        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key usage limit exceeded")
+                    
+                    # 更新使用次数
+                    key.usage_count += 1
+                    access_keys[token] = key.dict()
+                    save_access_keys()
+                    return True
+
         # 尝试JWT Token验证
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -731,6 +753,39 @@ async def get_storage_details(storage_type: str = 'local'):
     except Exception as e:
         logger.error(f"获取存储详情时发生错误: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.get("/admin/keys", dependencies=[Depends(verify_password)])
+async def get_keys():
+    return get_access_keys()
+
+@app.post("/admin/keys", dependencies=[Depends(verify_password)])
+async def create_key(key: AccessKey):
+    access_keys = get_access_keys()
+    if key.key in access_keys:
+        raise HTTPException(status_code=400, detail="Key already exists")
+    access_keys[key.key] = key.dict()
+    save_access_keys()
+    return key
+
+@app.put("/admin/keys/{key_str}", dependencies=[Depends(verify_password)])
+async def update_key(key_str: str, key_update: AccessKey):
+    access_keys = get_access_keys()
+    if key_str not in access_keys:
+        raise HTTPException(status_code=404, detail="Key not found")
+    access_keys[key_str] = key_update.dict()
+    save_access_keys()
+    return key_update
+
+@app.delete("/admin/keys/{key_str}", dependencies=[Depends(verify_password)])
+async def delete_key(key_str: str):
+    access_keys = get_access_keys()
+    if key_str not in access_keys:
+        raise HTTPException(status_code=404, detail="Key not found")
+    del access_keys[key_str]
+    save_access_keys()
+    return {"message": "Key deleted successfully"}
 
 # --- 路由注册 ---
 from .proxy import proxy_router

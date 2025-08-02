@@ -44,3 +44,11 @@ class ErrorResponse(BaseModel):
 class ModelList(BaseModel):
     object: str = "list"
     data: List[Dict]
+
+class AccessKey(BaseModel):
+    key: str
+    name: Optional[str] = None
+    usage_limit: Optional[int] = None
+    usage_count: int = 0
+    expires_at: Optional[int] = None
+    is_active: bool = True

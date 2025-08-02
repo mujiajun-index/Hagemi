@@ -65,6 +65,35 @@
              </div>
           </div>
 
+           <div class="category-card">
+              <div class="category-header">
+                  <span>访问密钥管理</span>
+                  <span class="toggle-icon">▶</span>
+              </div>
+              <div class="category-content" id="access-keys-content">
+                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
+                      <p><strong>功能描述:</strong> 在此管理您的访问密钥。这些密钥可用于替代管理员密码访问 v1 接口。</p>
+                  </div>
+                  <table id="access-keys-table">
+                      <thead>
+                          <tr>
+                              <th style="width: 5%;">序号</th>
+                              <th>名称</th>
+                              <th>密钥</th>
+                              <th>使用限制</th>
+                              <th>过期时间</th>
+                              <th>状态</th>
+                              <th style="width: 15%;">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <!-- Access Keys will be loaded here -->
+                      </tbody>
+                  </table>
+                  <button type="button" class="add-btn" onclick="addAccessKey()">+ 添加新访问密钥</button>
+              </div>
+           </div>
+
           <div class="category-card">
               <div class="category-header">
                   <span>历史文件查看</span>
