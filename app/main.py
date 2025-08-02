@@ -224,12 +224,23 @@ async def verify_password(request: Request):
                 key = AccessKey(**key_data)
                 if key.is_active:
                     if key.expires_at and datetime.now().timestamp() > key.expires_at:
+                        # 更新有效状态
+                        with access_keys_lock:
+                            key.is_active = False
+                            access_keys[token] = key.dict()
+                            save_access_keys()
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key expired")
                     if key.usage_limit is not None and key.usage_count >= key.usage_limit:
+                        # 更新有效状态
+                        with access_keys_lock:
+                            key.is_active = False
+                            access_keys[token] = key.dict()
+                            save_access_keys()
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key usage limit exceeded")
                     
                     # 更新使用次数
                     with access_keys_lock:
+                        key = AccessKey(**access_keys.get(token))
                         key.usage_count += 1
                         access_keys[token] = key.dict()
                         save_access_keys()
