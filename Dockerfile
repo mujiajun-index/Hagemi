@@ -17,5 +17,6 @@ ENV VERSION=2.1.0
 # 兼容huggingface本地保存限制为50GB（非持久性）磁盘空间(免费用户重新构建应用重启后数据会丢失)
 RUN mkdir -p /app/app/images && chmod -R 777 /app/app/images
 RUN touch /app/app/api_mappings.json && chmod 777 /app/app/api_mappings.json
+RUN touch /app/app/access_keys.json && chmod 777 /app/app/access_keys.json
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
