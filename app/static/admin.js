@@ -426,7 +426,7 @@ function renderGeminiKeys() {
         const row = `
             <tr>
                 <td>${index + 1}</td>
-                <td id="key-cell-${safeKeyId}">${key}<br><span id="key-status-${safeKeyId}" class="key-status-text"></span></td>
+                <td id="key-cell-${safeKeyId}" class="truncate-text" title="点击复制: ${key}" onclick="copyTextToClipboard(this, '${key}')">${key}<br><span id="key-status-${safeKeyId}" class="key-status-text"></span></td>
                 <td>
                     <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
                     <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
@@ -761,6 +761,58 @@ function fallbackCopyToClipboard(btn, text, successCallback) {
     document.body.removeChild(textArea);
 }
 
+function copyTextToClipboard(element, textToCopy) {
+    if (!textToCopy) {
+        return;
+    }
+
+    const originalText = element.innerHTML;
+    const originalClassName = element.className;
+
+    const showSuccess = () => {
+        element.innerHTML = '已复制!';
+        element.classList.add('copied-feedback');
+        setTimeout(() => {
+            element.innerHTML = originalText;
+            element.className = originalClassName;
+        }, 1500);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(textToCopy).then(showSuccess).catch(err => {
+            console.error('自动复制失败: ', err);
+            element.innerHTML = '复制失败';
+            element.classList.add('copied-feedback');
+            setTimeout(() => {
+                element.innerHTML = originalText;
+                element.className = originalClassName;
+            }, 1500);
+        });
+    } else {
+        // Fallback for non-secure contexts or older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = textToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showSuccess();
+            } else {
+                alert('自动复制失败，请手动选择文本并复制。');
+            }
+        } catch (err) {
+            console.error('Fallback 复制失败: ', err);
+            alert('自动复制失败，请手动选择文本并复制。\n错误信息: ' + err);
+        }
+        document.body.removeChild(textArea);
+    }
+}
+
 storageTypeSelector.addEventListener('change', (event) => {
     fetchMedia(1, event.target.value, currentPageSize);
     fetchStorageDetails(event.target.value);
@@ -957,7 +1009,7 @@ function loadAccessKeys() {
                 <tr>
                     <td>${index + 1}</td>
                     <td>${key.name || ''}</td>
-                    <td class="truncate-text" title="${key.key}">${key.key}</td>
+                    <td class="truncate-text" title="点击复制: ${key.key}" onclick="copyTextToClipboard(this, '${key.key}')">${key.key}</td>
                     <td>${usage}</td>
                     <td>${expires}</td>
                     <td><span class="status-badge ${statusClass}">${statusText}</span></td>

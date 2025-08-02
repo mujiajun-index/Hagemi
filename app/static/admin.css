@@ -630,3 +630,8 @@ input:checked + .slider:before {
     display: block;
     padding-bottom: 10px;
 }
+.copied-feedback {
+    color: var(--primary-color) !important;
+    font-weight: bold;
+    transition: all 0.3s;
+}
