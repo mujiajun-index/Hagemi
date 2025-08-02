@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 
 logger = logging.getLogger('my_logger')
 
@@ -8,6 +9,7 @@ api_mappings = {}
 access_keys = {}
 
 ACCESS_KEYS_FILE = "app/access_keys.json"
+access_keys_lock = threading.Lock()
 
 def load_access_keys():
     """从 JSON 文件加载访问密钥到全局变量"""
@@ -22,10 +24,18 @@ def load_access_keys():
         save_access_keys()
 
 def save_access_keys():
-    """将当前的访问密钥保存到 JSON 文件"""
-    with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(access_keys, f, indent=4, ensure_ascii=False)
-    logger.info("访问密钥已成功保存。")
+    """将当前的访问密钥保存到 JSON 文件（线程安全）"""
+    if access_keys_lock.acquire(blocking=False):
+        try:
+            # 为了确保数据一致性，在写入时复制一份
+            keys_to_save = access_keys.copy()
+            with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(keys_to_save, f, indent=4, ensure_ascii=False)
+            logger.info("访问密钥已成功同步到文件。")
+        finally:
+            access_keys_lock.release()
+    else:
+        logger.info("另一个线程正在同步访问密钥，跳过本次操作。")
 
 def get_access_keys():
     """返回当前的访问密钥"""
