@@ -142,19 +142,41 @@ button:hover {
 .radio-label .setting-description {
     margin-left: 0.5em;
 }
-#api-mappings-table, #gemini-keys-table {
+#api-mappings-table, #gemini-keys-table, #access-keys-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1em;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 #api-mappings-table th, #api-mappings-table td,
-#gemini-keys-table th, #gemini-keys-table td {
-    border: 1px solid var(--border-color);
-    padding: 0.8em;
+#gemini-keys-table th, #gemini-keys-table td,
+#access-keys-table th, #access-keys-table td {
+    padding: 1em;
     text-align: left;
+    border-bottom: 1px solid var(--border-color);
 }
-#api-mappings-table th, #gemini-keys-table th {
+
+#api-mappings-table tbody tr:last-child td,
+#gemini-keys-table tbody tr:last-child td,
+#access-keys-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+#api-mappings-table th, #gemini-keys-table th, #access-keys-table th {
     background-color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#api-mappings-table tbody tr:hover,
+#gemini-keys-table tbody tr:hover,
+#access-keys-table tbody tr:hover {
+    background-color: #f5f5f5;
 }
 .action-btn {
     background: none;
@@ -509,4 +531,35 @@ button:hover {
     margin-bottom: 1em;
     font-size: 0.9em;
     color: var(--label-color);
+}
+.status-badge {
+    padding: 0.3em 0.6em;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.status-active {
+    background-color: #e8f5e9; /* a light green */
+    color: #2e7d32;
+}
+
+.status-inactive {
+    background-color: #ffebec; /* a light red */
+    color: #c62828;
+}
+
+#access-keys-table .action-btn {
+    margin-right: 8px;
+}
+.truncate-text {
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    cursor: pointer;
 }

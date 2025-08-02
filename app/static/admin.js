@@ -949,18 +949,19 @@ function loadAccessKeys() {
            const key = data[key_id];
             const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
             const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit}` : '无限制';
-            const status = key.is_active ? '有效' : '无效';
+            const statusClass = key.is_active ? 'status-active' : 'status-inactive';
+            const statusText = key.is_active ? '有效' : '无效';
             const row = `
                 <tr>
                     <td>${index + 1}</td>
                     <td>${key.name || ''}</td>
-                    <td>${key.key}</td>
+                    <td class="truncate-text" title="${key.key}">${key.key}</td>
                     <td>${usage}</td>
                     <td>${expires}</td>
-                    <td>${status}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                     <td>
-                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')">✏️</button>
-                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')">🗑️</button>
+                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')" title="编辑">✏️</button>
+                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')" title="删除">🗑️</button>
                     </td>
                 </tr>
             `;
