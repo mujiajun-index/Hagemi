@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <title>Gemini API 代理服务</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                line-height: 1.6;
+            }
+            .title-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: relative;
+                margin-bottom: 30px;
+            }
+            h1 {
+                color: #333;
+                text-align: center;
+                margin: 0;
+            }
+            .settings-btn {
+                position: absolute;
+                right: 0;
+                cursor: pointer;
+                width: 24px;
+                height: 24px;
+            }
+            .info-box {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 20px;
+                margin-bottom: 20px;
+                position: relative;
+            }
+            .status {
+                color: #28a745;
+                font-weight: bold;
+            }
+            .version {
+                position: absolute;
+                bottom: 0px;
+                right: 10px;
+                color: #ccc;
+                font-size: 0.9em; 
+            }
+            /* Modal Styles */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.5);
+            }
+            .modal-content {
+                background-color: #fefefe;
+                margin: 15% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+                max-width: 400px;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                animation: modal-anim 0.3s ease-out;
+            }
+            @keyframes modal-anim {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }
+            .modal-header h2 {
+                margin: 0;
+                font-size: 1.25em;
+            }
+            .modal-close {
+                color: #aaa;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .modal-close:hover,
+            .modal-close:focus {
+                color: black;
+                text-decoration: none;
+            }
+            .modal-body {
+                padding: 20px 0;
+            }
+            .modal-input {
+                width: 100%;
+                padding: 10px;
+                margin-top: 10px;
+                box-sizing: border-box;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+            .modal-footer {
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #eee;
+            }
+            .modal-btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 1em;
+            }
+            .modal-btn-confirm {
+                background-color: #4a90e2;
+                color: white;
+            }
+            .modal-btn-cancel {
+                background-color: #f1f1f1;
+                color: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="title-container">
+            <h1>🤖 Gemini API 代理服务</h1>
+            <svg class="settings-btn" onclick="goToAdmin()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.8293 10.4291C19.8293 10.3532 19.8369 10.2773 19.8521 10.2014L21.6993 8.7225C21.8833 8.57462 21.9355 8.31383 21.8326 8.10707L20.0479 4.99304C19.945 3.78628 19.6866 4.73521 19.5837 4.52845L17.6528 5.24314C17.156 4.88936 16.6173 4.59352 16.0465 4.36762L15.7663 2.28538C15.7343 2.05203 15.5275 1.875 15.2861 1.875H11.7142C11.4728 1.875 11.2659 2.05203 11.234 2.28538L10.9538 4.36762C10.383 4.59352 9.84428 4.88936 9.34753 5.24314L7.41658 4.52845C7.31373 4.73521 7.05528 3.78628 6.95243 4.99304L5.16774 8.10707C5.06489 8.31383 5.11704 8.57462 5.30102 8.7225L7.14823 10.2014C7.16343 10.2773 7.171 10.3532 7.171 10.4291C7.171 10.505 7.16343 10.5809 7.14823 10.6568L5.30102 12.1357C5.11704 12.2836 5.06489 12.5444 5.16774 12.7511L6.95243 15.8652C7.05528 16.0719 7.31373 15.123 7.41658 15.3298L9.34753 14.6151C9.84428 14.9689 10.383 15.2647 10.9538 15.4906L11.234 17.5728C11.2659 17.8062 11.4728 17.9832 11.7142 17.9832H15.2861C15.5275 17.9832 15.7343 17.8062 15.7663 17.5728L16.0465 15.4906C16.6173 15.2647 17.156 14.9689 17.6528 14.6151L19.5837 15.3298C19.6866 15.123 19.945 16.0719 20.0479 15.8652L21.8326 12.7511C21.9355 12.5444 21.8833 12.2836 21.6993 12.1357L19.8521 10.6568C19.8369 10.5809 19.8293 10.505 19.8293 10.4291ZM13.5001 13.125C11.827 13.125 10.4546 11.7526 10.4546 10.0795C10.4546 8.40641 11.827 7.03397 13.5001 7.03397C15.1732 7.03397 16.5456 8.40641 16.5456 10.0795C16.5456 11.7526 15.1732 13.125 13.5001 13.125Z"></path>
+            </svg>
+        </div>
+        
+        <div class="info-box">
+            <h2>🟢 运行状态</h2>
+            <p class="status">服务运行中</p>
+            <p>可用API密钥数量: {{ len(key_manager.api_keys) }}</p>
+            <p>可用模型数量: {{ len(GeminiClient.AVAILABLE_MODELS) }}</p>
+        </div>
+
+        <div class="info-box">
+            <h2>⚙️ 环境配置</h2>
+            <p>每分钟请求限制: {{ MAX_REQUESTS_PER_MINUTE }}</p>
+            <p>每IP每日请求限制: {{ MAX_REQUESTS_PER_DAY_PER_IP }}</p>
+            <p>最大重试次数: {{ len(key_manager.api_keys) }}</p>
+            <p class="version">v{{ VERSION }}</p>
+        </div>
+    </body>
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>管理员登录</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>请输入管理员密码:</p>
+                <input type="password" id="password-input" class="modal-input" onkeydown="if(event.keyCode==13) document.getElementById('modal-confirm-btn').click()">
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="modal-btn modal-btn-cancel">取消</button>
+                <button id="modal-confirm-btn" class="modal-btn modal-btn-confirm">登录</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const modal = document.getElementById('password-modal');
+        const modalCloseBtn = document.querySelector('#password-modal .modal-close');
+        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const passwordInput = document.getElementById('password-input');
+        let resolvePromise;
+
+        function showPasswordModal() {
+            modal.style.display = 'block';
+            passwordInput.focus();
+            return new Promise(resolve => {
+                resolvePromise = resolve;
+            });
+        }
+
+        function hideModal() {
+            modal.style.display = 'none';
+            passwordInput.value = '';
+            if (resolvePromise) {
+                resolvePromise(null); // Resolve with null if modal is closed without confirmation
+                resolvePromise = null;
+            }
+        }
+
+        modalConfirmBtn.onclick = () => {
+            if (resolvePromise) {
+                resolvePromise(passwordInput.value);
+                resolvePromise = null;
+            }
+            hideModal();
+        };
+
+        modalCancelBtn.onclick = hideModal;
+        modalCloseBtn.onclick = hideModal;
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                hideModal();
+            }
+        };
+
+        async function goToAdmin() {
+            const password = await showPasswordModal();
+            if (password) {
+                fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password: password })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.detail || '密码错误或服务器异常'); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.access_token) {
+                        sessionStorage.setItem('admin-token', data.access_token);
+                        window.location.href = '/admin';
+                    } else {
+                        alert(data.detail || '登录失败');
+                    }
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
+            }
+        }
+    </script>
+    </html>
