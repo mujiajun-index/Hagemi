@@ -958,8 +958,8 @@ function loadAccessKeys() {
                     <td>${expires}</td>
                     <td>${status}</td>
                     <td>
-                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')">✏️</button>
-                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')">🗑️</button>
+                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.name}')">✏️</button>
+                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.name}')">🗑️</button>
                     </td>
                 </tr>
             `;

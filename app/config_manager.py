@@ -15,7 +15,7 @@ def load_access_keys():
     try:
         with open(ACCESS_KEYS_FILE, 'r', encoding='utf-8') as f:
             access_keys = json.load(f)
-        logger.info(f"成功加载访问密钥: {len(access_keys)} 个")
+        logger.info(f"成功加载 访问密钥: {len(access_keys)} 个")
     except (FileNotFoundError, json.JSONDecodeError):
         logger.warning(f"未找到或无法解析 {ACCESS_KEYS_FILE}，将创建新文件。")
         access_keys = {}
