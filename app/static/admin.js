@@ -100,6 +100,7 @@ function showConfirm(title, text) {
         modalText.style.display = 'block';
         modalSingleInputContainer.style.display = 'none';
         modalMappingContainer.style.display = 'none';
+        document.getElementById('modal-access-key-container').style.display = 'none';
 
         modalConfirmBtn.onclick = () => {
             if (resolvePromise) resolve(true);
@@ -962,7 +963,7 @@ function loadAccessKeys() {
                     <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                     <td>
                         <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')" title="编辑">✏️</button>
-                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}')" title="删除">🗑️</button>
+                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}', '${encodeURIComponent(key.name || '')}')" title="删除">🗑️</button>
                     </td>
                 </tr>
             `;
@@ -1092,8 +1093,9 @@ async function editAccessKey(key) {
     .then(loadAccessKeys);
 }
 
-async function deleteAccessKey(key) {
-    const confirmed = await showConfirm("确认删除", `确定要删除密钥 ${key} 吗?`);
+async function deleteAccessKey(key, name) {
+    const displayName = name ? decodeURIComponent(name) : key;
+    const confirmed = await showConfirm("确认删除", `确定要删除密钥 "${displayName}" 吗?`);
     if (!confirmed) return;
 
     fetch(`/admin/keys/${key}`, {
