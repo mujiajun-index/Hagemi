@@ -1004,7 +1004,7 @@ function loadAccessKeys() {
         allAccessKeys = data; // Store all keys for validation
         const tbody = document.querySelector('#access-keys-table tbody');
         tbody.innerHTML = '';
-        Object.keys(data).forEach((key_id, index) => {
+        Object.keys(data).reverse().forEach((key_id, index) => {
            const key = data[key_id];
             const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
             const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit} 次` : '无限制';

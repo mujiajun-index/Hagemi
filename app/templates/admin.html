@@ -3,40 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系统设置</title>
+    <title>⚙️系统设置</title>
     <link rel="stylesheet" href="static/admin.css">
 </head>
 <body>
     <div class="container">
-        <h1>系统设置</h1>
+        <h1>⚙️系统设置</h1>
         <form id="settings-form">
-           <div class="category-card">
-              <div class="category-header">
-                  <span>API 代理路由映射</span>
-                  <span class="toggle-icon">▶</span>
-              </div>
-              <div class="category-content" id="api-mappings-content">
-                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
-                      <p><strong>功能描述:</strong> 此功能允许您将特定的 API 请求前缀代理到不同的目标地址。例如，您可以将所有发往 <code>/openai</code> 的请求转发到 <code>https://api.openai.com</code>。</p>
-                      <p><strong>使用示例:</strong> 直接访问本项目地址 <code>http://localhost:7860/openai/v1/chat/completions</code> 即可将请求代理到 <code>https://api.openai.com/v1/chat/completions</code></p>
-                  </div>
-                  <table id="api-mappings-table">
-                      <thead>
-                          <tr>
-                              <th style="width: 10%;">序号</th>
-                              <th>请求前缀</th>
-                              <th>目标地址</th>
-                              <th style="width: 20%;">操作</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <!-- Mappings will be loaded here -->
-                      </tbody>
-                  </table>
-                  <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
-              </div>
-          </div>
-
           <div class="category-card">
              <div class="category-header">
                  <span>Gemini API 密钥管理</span>
@@ -65,14 +38,14 @@
              </div>
           </div>
 
-           <div class="category-card">
+          <div class="category-card">
               <div class="category-header">
                   <span>访问密钥管理</span>
                   <span class="toggle-icon">▶</span>
               </div>
               <div class="category-content" id="access-keys-content">
                   <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
-                      <p><strong>功能描述:</strong> 在此管理您的访问密钥。这些密钥可用于替代管理员密码访问 v1 接口。</p>
+                      <p><strong>功能描述:</strong> 在此管理您的访问密钥。这些密钥可用于访问 v1 接口，并可设置次数限制和过期时间。</p>
                   </div>
                   <table id="access-keys-table">
                       <thead>
@@ -92,7 +65,34 @@
                   </table>
                   <button type="button" class="add-btn" onclick="addAccessKey()">+ 添加新访问密钥</button>
               </div>
-           </div>
+          </div>
+
+          <div class="category-card">
+              <div class="category-header">
+                  <span>代理路由映射</span>
+                  <span class="toggle-icon">▶</span>
+              </div>
+              <div class="category-content" id="api-mappings-content">
+                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
+                      <p><strong>功能描述:</strong> 此功能允许您将特定的 API 请求前缀代理到不同的目标地址。例如，您可以将所有发往 <code>/openai</code> 的请求转发到 <code>https://api.openai.com</code>。</p>
+                      <p><strong>使用示例:</strong> 直接访问本项目地址 <code>http://localhost:7860/openai/v1/chat/completions</code> 即可将请求代理到 <code>https://api.openai.com/v1/chat/completions</code></p>
+                  </div>
+                  <table id="api-mappings-table">
+                      <thead>
+                          <tr>
+                              <th style="width: 10%;">序号</th>
+                              <th>请求前缀</th>
+                              <th>目标地址</th>
+                              <th style="width: 20%;">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <!-- Mappings will be loaded here -->
+                      </tbody>
+                  </table>
+                  <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
+              </div>
+          </div>
 
           <div class="category-card">
               <div class="category-header">
@@ -134,9 +134,9 @@
               </div>
           </div>
 
-            <div class="button-group">
+          <div class="button-group">
                 <button type="button" class="logout-btn" onclick="logout()">退出登录</button>
-            </div>
+          </div>
         </form>
     </div>
    <div id="modal" class="modal">
