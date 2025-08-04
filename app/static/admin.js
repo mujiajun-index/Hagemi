@@ -992,7 +992,7 @@ document.querySelectorAll('input[name="storage-type"]').forEach(radio => {
     });
 });
 
-function loadAccessKeys(showSuccessMessage = false) {
+function loadAccessKeys() {
     fetch('/admin/keys', {
         headers: { 'Authorization': 'Bearer ' + token }
     })
@@ -1023,9 +1023,6 @@ function loadAccessKeys(showSuccessMessage = false) {
             `;
             tbody.innerHTML += row;
         });
-        if (showSuccessMessage) {
-            alert('刷新成功！');
-        }
     });
 }
 
