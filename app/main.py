@@ -229,6 +229,8 @@ async def verify_password(request: Request):
                             key.is_active = False
                             access_keys[token] = key.dict()
                             save_access_keys()
+                        log_msg = format_log_message('INFO', f"IP: {client_ip} Access key {token} expired")
+                        logger.info(log_msg)
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key expired")
                     if key.usage_limit is not None and key.usage_count >= key.usage_limit:
                         # 更新有效状态
@@ -236,14 +238,16 @@ async def verify_password(request: Request):
                             key.is_active = False
                             access_keys[token] = key.dict()
                             save_access_keys()
+                        log_msg = format_log_message('INFO', f"IP: {client_ip} Access key {token} usage limit exceeded")
+                        logger.info(log_msg)
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key usage limit exceeded")
-                    
-                    # 更新使用次数
-                    with access_keys_lock:
-                        key = AccessKey(**access_keys.get(token))
-                        key.usage_count += 1
-                        access_keys[token] = key.dict()
-                        save_access_keys()
+                    if key.usage_limit is not None and key.usage_limit > 0:
+                        # 更新使用次数
+                        with access_keys_lock:
+                            key = AccessKey(**access_keys.get(token))
+                            key.usage_count += 1
+                            access_keys[token] = key.dict()
+                            save_access_keys()
                     return True
                 else:
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key is lose efficacy")
