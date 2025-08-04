@@ -304,6 +304,7 @@ async function saveGroupSettings(groupContentElement) {
 
 let currentGeminiKeys = [];
 let allAccessKeys = {};
+let accessKeyFilterState = 0; // 0: 全部, 1: 有效, 2: 无效
 
 // The function now accepts the environment data as an argument
 function loadGeminiKeys(data) {
@@ -1194,4 +1195,35 @@ async function deleteAccessKey(key, name) {
     })
     .then(handleApiResponse)
     .then(loadAccessKeys);
+}
+
+
+function filterAccessKeys() {
+    accessKeyFilterState = (accessKeyFilterState + 1) % 3;
+    const tbody = document.querySelector('#access-keys-table tbody');
+    const rows = tbody.querySelectorAll('tr');
+    const statusHeader = document.getElementById('status-header');
+
+    let headerText = '状态';
+    rows.forEach(row => {
+        const statusCell = row.querySelector('td:nth-child(6) .status-badge');
+        if (statusCell) {
+            const isActive = statusCell.classList.contains('status-active');
+            switch (accessKeyFilterState) {
+                case 1: // Show active only
+                    row.style.display = isActive ? '' : 'none';
+                    headerText = '状态 (有效)';
+                    break;
+                case 2: // Show inactive only
+                    row.style.display = !isActive ? '' : 'none';
+                    headerText = '状态 (无效)';
+                    break;
+                default: // Show all
+                    row.style.display = '';
+                    headerText = '状态 (全部)';
+                    break;
+            }
+        }
+    });
+    statusHeader.textContent = headerText;
 }
