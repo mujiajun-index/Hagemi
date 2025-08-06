@@ -210,6 +210,7 @@ async function addApiMapping() {
     const result = await showMappingPrompt("添加新映射");
     if (!result) return;
 
+    showLoader();
     fetch('/admin/api_mappings', {
         method: 'POST',
         headers: {
@@ -219,13 +220,15 @@ async function addApiMapping() {
         body: JSON.stringify({ prefix: result.prefix, target_url: result.target_url })
     })
     .then(handleApiResponse)
-    .then(loadApiMappings);
+    .then(loadApiMappings)
+    .finally(hideLoader);
 }
 
 async function editApiMapping(oldPrefix, oldUrl) {
     const result = await showMappingPrompt("编辑映射", oldPrefix, oldUrl);
     if (!result) return;
 
+    showLoader();
     fetch('/admin/api_mappings', {
         method: 'PUT',
         headers: {
@@ -239,7 +242,8 @@ async function editApiMapping(oldPrefix, oldUrl) {
         })
     })
     .then(handleApiResponse)
-    .then(loadApiMappings);
+    .then(loadApiMappings)
+    .finally(hideLoader);
 }
 
 async function deleteApiMapping(prefix) {
@@ -249,12 +253,14 @@ async function deleteApiMapping(prefix) {
     // 从第二个字符开始，以移除开头的'/'
     const encodedPrefix = encodeURIComponent(prefix.substring(1));
 
+    showLoader();
     fetch(`/admin/api_mappings/${encodedPrefix}`, {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(handleApiResponse)
-    .then(loadApiMappings);
+    .then(loadApiMappings)
+    .finally(hideLoader);
 }
 
 function handleApiResponse(response) {
@@ -852,6 +858,7 @@ deleteSelectedBtn.addEventListener('click', async () => {
     const confirmed = await showConfirm('确认删除', `您确定要删除选中的 ${selectedFiles.length} 个文件吗？此操作不可恢复。`);
     if (confirmed) {
         const token = sessionStorage.getItem('admin-token');
+        showLoader();
         try {
             const response = await fetch(`/admin/media?storage_type=${currentStorageType}`, {
                 method: 'DELETE',
@@ -869,6 +876,8 @@ deleteSelectedBtn.addEventListener('click', async () => {
         } catch (error) {
             console.error('Error deleting media:', error);
             alert('删除失败，请查看控制台获取更多信息。');
+        } finally {
+            hideLoader();
         }
     }
 });
@@ -1139,6 +1148,7 @@ async function addAccessKey() {
         is_active: true
     };
 
+    showLoader();
     fetch('/admin/keys', {
         method: 'POST',
         headers: {
@@ -1152,7 +1162,8 @@ async function addAccessKey() {
     .catch(error => {
         console.error('添加访问密钥失败:', error);
         alert('添加访问密钥失败: ' + error.message);
-    });
+    })
+    .finally(hideLoader);
 }
 
 async function editAccessKey(key) {
@@ -1187,6 +1198,7 @@ async function editAccessKey(key) {
         usage_count: key_data.usage_count
     };
 
+    showLoader();
     fetch(`/admin/keys/${key}`, {
         method: 'PUT',
         headers: {
@@ -1196,7 +1208,8 @@ async function editAccessKey(key) {
         body: JSON.stringify(data)
     })
     .then(handleApiResponse)
-    .then(loadAccessKeys);
+    .then(loadAccessKeys)
+    .finally(hideLoader);
 }
 
 async function deleteAccessKey(key, name) {
@@ -1204,12 +1217,14 @@ async function deleteAccessKey(key, name) {
     const confirmed = await showConfirm("确认删除", `确定要删除密钥 "${displayName}" 吗?`);
     if (!confirmed) return;
 
+    showLoader();
     fetch(`/admin/keys/${key}`, {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(handleApiResponse)
-    .then(loadAccessKeys);
+    .then(loadAccessKeys)
+    .finally(hideLoader);
 }
 
 
