@@ -275,7 +275,6 @@ class GeminiClient:
 
         # 判断是否是思考模型并解析思维预算的模型名称和设置
         thinking_model, thinking_budget = self._parse_model_name_and_budget(request.model)
-        logger.info(f"思考模型: {thinking_model} 思维预算: {thinking_budget}")
 
         if thinking_model is not None:
             base_model = thinking_model
@@ -300,8 +299,6 @@ class GeminiClient:
             data["generationConfig"]["thinkingConfig"] = {
                 "thinkingBudget": thinking_budget
             }
-        
-        logger.info(f"generationConfig: {data['generationConfig']}")
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
