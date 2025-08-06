@@ -1,3 +1,10 @@
+function showLoader() {
+    document.getElementById('loader').style.display = 'flex';
+}
+
+function hideLoader() {
+    document.getElementById('loader').style.display = 'none';
+}
 document.addEventListener('DOMContentLoaded', function() {
     const token = sessionStorage.getItem('admin-token');
     if (!token) {
@@ -282,6 +289,7 @@ async function saveGroupSettings(groupContentElement) {
     data.password = password;
 
     const token = sessionStorage.getItem('admin-token');
+    showLoader();
     try {
         const response = await fetch('/admin/update', {
             method: 'POST',
@@ -299,6 +307,8 @@ async function saveGroupSettings(groupContentElement) {
     } catch (error) {
         console.error('更新失败:', error);
         alert('更新失败，请查看浏览器控制台获取更多信息。');
+    } finally {
+        hideLoader();
     }
 }
 
@@ -495,6 +505,7 @@ async function saveGeminiKeys() {
         'password': password
     };
 
+    showLoader();
     try {
         const response = await fetch('/admin/update', {
             method: 'POST',
@@ -514,6 +525,8 @@ async function saveGeminiKeys() {
     } catch (error) {
         console.error('更新失败:', error);
         alert('更新失败，请查看浏览器控制台获取更多信息。');
+    } finally {
+        hideLoader();
     }
 }
 
