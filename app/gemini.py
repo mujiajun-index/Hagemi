@@ -112,7 +112,20 @@ class ResponseWrapper:
 class GeminiClient:
 
     AVAILABLE_MODELS = []
-    EXTRA_MODELS = os.environ.get("EXTRA_MODELS", "").split(",")
+
+    # 扩展模型列表，支持设置思考token的模型
+    EXTENDED_MODELS = [
+        "---------- EXTENDED_MODELS ----------",
+        "gemini-2.5-pro-nothinking",
+        "gemini-2.5-flash-nothinking",
+        "gemini-2.5-flash-lite-nothinking",
+        "gemini-2.5-pro-thinking-32768",
+        "gemini-2.5-flash-thinking-24576",
+        "gemini-2.5-flash-lite-thinking-24576"
+    ]
+
+    # 自定义模型列表，支持设置思考token的模型
+    EXTRA_MODELS = [model for model in os.environ.get("EXTRA_MODELS", "").split(",") if model]
     # 历史图片提交方式: all:提交上下文所有图片 last:只提交最后一张图片(推荐)
     HISTORY_IMAGE_SUBMIT_TYPE = os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")
     # API基础URL，默认为Google官方API地址
@@ -163,7 +176,8 @@ class GeminiClient:
             elif thinking_mode == "nothinking":
                 if base_model == "gemini-2.5-pro":
                     thinking_budget = 128; #gemini-2.5-pro 最少设置 128 Token
-                thinking_budget = 0  # Thinking off
+                else:
+                    thinking_budget = 0  # Thinking off
 
         return base_model, thinking_budget
 
@@ -515,5 +529,8 @@ class GeminiClient:
             response.raise_for_status()
             data = response.json()
             models = [model["name"] for model in data.get("models", [])]
+            # 合并扩展模型
+            models.extend(GeminiClient.EXTENDED_MODELS)
+            # 自定义模型列表
             models.extend(GeminiClient.EXTRA_MODELS)
             return models
