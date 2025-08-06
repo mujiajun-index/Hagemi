@@ -521,7 +521,7 @@ async def get_env_vars(_: None = Depends(verify_password)):
             "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"), "description": "单个IP每天允许的最大请求次数。"},
             "EXTRA_MODELS": {"label": "自定义模型列表", "value": os.environ.get("EXTRA_MODELS", ""), "description": "自定义模型列表，多个请用逗号隔开。"},
             "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
-            # "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
+            "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
             "HISTORY_IMAGE_SUBMIT_TYPE": {
@@ -614,7 +614,8 @@ async def reload_config():
     MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
     WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
     authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
-    
+    # 重新初始化代理URL
+    GeminiClient.BASE_URL = os.environ.get("PROXY_URL") or "https://generativelanguage.googleapis.com"
     # 重新初始化自定义模型列表
     new_extra_models = os.environ.get("EXTRA_MODELS", "")
     if new_extra_models != ",".join(GeminiClient.EXTRA_MODELS):

@@ -132,7 +132,7 @@ class GeminiClient:
     # 历史图片提交方式: all:提交上下文所有图片 last:只提交最后一张图片(推荐)
     HISTORY_IMAGE_SUBMIT_TYPE = os.environ.get("HISTORY_IMAGE_SUBMIT_TYPE", "last")
     # API基础URL，默认为Google官方API地址
-    BASE_URL = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
+    BASE_URL = os.environ.get("PROXY_URL") or "https://generativelanguage.googleapis.com"
     def __init__(self, api_key: str, storage=None):
         self.api_key = api_key
         # 使用传入的存储实例或创建新实例
@@ -530,9 +530,7 @@ class GeminiClient:
     
     @staticmethod
     async def list_available_models(api_key) -> list:
-        base_url = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
-        url = "{}/v1beta/models?key={}".format(base_url,
-            api_key)
+        url = "{}/v1beta/models?key={}".format(GeminiClient.BASE_URL,api_key)
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             response.raise_for_status()
