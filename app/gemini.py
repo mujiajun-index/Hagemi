@@ -148,9 +148,11 @@ class GeminiClient:
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite"
     ]
-    def _parse_model_name_and_budget(self, model_name: str):
+    
+    @staticmethod
+    def _parse_model_name_and_budget(model_name: str):
         # 验证model_name是否以thinkingModels中的模型开头
-        if not any(model_name.startswith(m) for m in self.thinkingModels):
+        if not any(model_name.startswith(m) for m in GeminiClient.thinkingModels):
             return None, None
 
         """

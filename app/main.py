@@ -320,13 +320,14 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
     global current_api_key
     protect_from_abuse(
         http_request, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP)
-    if chat_request.model not in GeminiClient.AVAILABLE_MODELS:
+    # 解析是否是自定义思考模型,不在所有模型列表中,但使其也可以访问
+    thinking_model, thinking_budget = GeminiClient._parse_model_name_and_budget(chat_request.model)
+    if chat_request.model not in GeminiClient.AVAILABLE_MODELS and thinking_model not in GeminiClient.thinkingModels:
         error_msg = "无效的模型"
         extra_log = {'request_type': request_type, 'model': chat_request.model, 'status_code': 400, 'error_message': error_msg}
         log_msg = format_log_message('ERROR', error_msg, extra=extra_log)
         logger.error(log_msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
     key_manager.reset_tried_keys_for_request() # 在每次请求处理开始时重置 tried_keys 集合
 
