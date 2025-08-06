@@ -519,8 +519,9 @@ async def get_env_vars(_: None = Depends(verify_password)):
             "GEMINI_API_KEYS": {"label": "Gemini API 密钥", "value": os.environ.get("GEMINI_API_KEYS", ""), "type": "password", "description": "您的Gemini API密钥，多个请用逗号隔开。"},
             "MAX_REQUESTS_PER_MINUTE": {"label": "每分钟最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"), "description": "单个IP每分钟允许的最大请求次数。"},
             "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"), "description": "单个IP每天允许的最大请求次数。"},
+            "EXTRA_MODELS": {"label": "自定义模型列表", "value": os.environ.get("EXTRA_MODELS", ""), "description": "自定义模型列表，多个请用逗号隔开。"},
             "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
-            "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
+            # "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
             "HISTORY_IMAGE_SUBMIT_TYPE": {
@@ -614,6 +615,13 @@ async def reload_config():
     WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
     authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
     
+    # 重新初始化自定义模型列表
+    new_extra_models = os.environ.get("EXTRA_MODELS", "")
+    if new_extra_models != ",".join(GeminiClient.EXTRA_MODELS):
+        # 重新初始化自定义模型列表
+        GeminiClient.EXTRA_MODELS = [model for model in new_extra_models.split(",") if model]
+        # 重新初始化可用模型列表
+        GeminiClient.AVAILABLE_MODELS = GeminiClient.merge_model()
     # 重新初始化 APIKeyManager
     new_api_keys = os.environ.get("GEMINI_API_KEYS", "")
     if new_api_keys != ",".join(key_manager.api_keys):

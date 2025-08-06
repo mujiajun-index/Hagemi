@@ -113,6 +113,9 @@ class GeminiClient:
 
     AVAILABLE_MODELS = []
 
+    # Gemini 模型列表
+    GEMINI_MODELS = []
+
     # 扩展模型列表，支持设置思考token的模型
     EXTENDED_MODELS = [
         "---------- EXTENDED_MODELS ----------",
@@ -516,6 +519,15 @@ class GeminiClient:
         else:
             return gemini_history, {"parts": [{"text": system_instruction_text}]}
 
+
+    def merge_model():
+        # 合并所有模型
+        models = []
+        models.extend(GeminiClient.GEMINI_MODELS)
+        models.extend(GeminiClient.EXTENDED_MODELS)
+        models.extend(GeminiClient.EXTRA_MODELS)
+        return models
+    
     @staticmethod
     async def list_available_models(api_key) -> list:
         base_url = os.environ.get("PROXY_URL", "https://generativelanguage.googleapis.com")
@@ -526,6 +538,8 @@ class GeminiClient:
             response.raise_for_status()
             data = response.json()
             models = [model["name"] for model in data.get("models", [])]
+            # 初始化Gemini模型列表
+            GeminiClient.GEMINI_MODELS = list(models)
             # 合并扩展模型
             models.extend(GeminiClient.EXTENDED_MODELS)
             # 自定义模型列表
