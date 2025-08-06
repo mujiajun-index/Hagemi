@@ -2,6 +2,7 @@ from math import log
 import requests
 import json
 import os
+import re
 from app.models import ChatCompletionRequest, Message  # 相对导入
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
@@ -125,6 +126,47 @@ class GeminiClient:
         else:
             self.storage = storage
 
+   # 支持设置思考token的模型列表
+    thinkingModels = [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+    ]
+    def _parse_model_name_and_budget(self, model_name: str):
+        # 验证model_name是否以thinkingModels中的模型开头
+        if not any(model_name.startswith(m) for m in self.thinkingModels):
+            return None, None
+
+        """
+        Parses the model name to extract the base model and thinking budget.
+        - gemini-2.5-pro-thinking-128 -> model: gemini-2.5-pro, budget: 128
+        - gemini-2.5-flash-nothinking -> model: gemini-2.5-flash, budget: 0
+        - gemini-2.5-pro -> model: gemini-2.5-pro, budget: -1
+        """
+        # Default values
+        base_model = model_name
+        thinking_budget = -1
+
+        # Regex to find thinking config
+        match = re.match(r"^(.*?)-(thinking|nothinking)(?:-(\d+))?$", model_name)
+
+        if match:
+            base_model = match.group(1)
+            thinking_mode = match.group(2)
+            budget_value = match.group(3)
+
+            if thinking_mode == "thinking":
+                if budget_value:
+                    thinking_budget = int(budget_value)
+                else:
+                    thinking_budget = -1  # Default to dynamic if no value is specified
+            elif thinking_mode == "nothinking":
+                if base_model == "gemini-2.5-pro":
+                    thinking_budget = 128; #gemini-2.5-pro 最少设置 128 Token
+                thinking_budget = 0  # Thinking off
+
+        return base_model, thinking_budget
+
     # 过滤Markdown格式的图片
     def filter_markdown_images(self, content):
         import re
@@ -214,8 +256,17 @@ class GeminiClient:
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
 
-        api_version = "v1alpha" if "think" in request.model else "v1beta"
-        url = f"{self.BASE_URL}/{api_version}/models/{request.model}:streamGenerateContent?key={self.api_key}&alt=sse"
+        # 默认基础模型
+        base_model = request.model
+
+        # 判断是否是思考模型并解析思维预算的模型名称和设置
+        thinking_model, thinking_budget = self._parse_model_name_and_budget(request.model)
+        logger.info(f"思考模型: {thinking_model} 思维预算: {thinking_budget}")
+
+        if thinking_model is not None:
+            base_model = thinking_model
+
+        url = f"{self.BASE_URL}/v1beta/models/{base_model}:streamGenerateContent?key={self.api_key}&alt=sse"
         headers = {
             "Content-Type": "application/json",
         }
@@ -230,7 +281,13 @@ class GeminiClient:
         }
         if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
+        # 思考模型需要设置思维预算
+        if thinking_budget is not None:
+            data["generationConfig"]["thinkingConfig"] = {
+                "thinkingBudget": thinking_budget
+            }
         
+        logger.info(f"generationConfig: {data['generationConfig']}")
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
@@ -306,8 +363,15 @@ class GeminiClient:
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
         
-        api_version = "v1alpha" if "think" in request.model else "v1beta"
-        url = f"{self.BASE_URL}/{api_version}/models/{request.model}:generateContent?key={self.api_key}"
+      # 默认基础模型
+        base_model = request.model
+
+        # 判断是否是思考模型并解析思维预算的模型名称和设置
+        thinking_model, thinking_budget = self._parse_model_name_and_budget(request.model)
+        if thinking_model is not None:
+            base_model = thinking_model
+
+        url = f"{self.BASE_URL}/v1beta/models/{base_model}:generateContent?key={self.api_key}"
         headers = {
             "Content-Type": "application/json",
         }
@@ -322,6 +386,10 @@ class GeminiClient:
         }
         if system_instruction and not isImageModel:
             data["system_instruction"] = system_instruction
+        if thinking_budget is not None:
+            data["generationConfig"]["thinkingConfig"] = {
+                "thinkingBudget": thinking_budget
+            }
 
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         response = requests.post(url, headers=headers, json=data)
