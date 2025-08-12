@@ -336,3 +336,15 @@ def generate_random_alphanumeric(length: int) -> str:
         
     alphanumeric_chars = string.ascii_letters + string.digits
     return ''.join(random.choices(alphanumeric_chars, k=length))
+
+def get_client_ip(request: Request) -> str:
+    """
+    获取客户端的真实IP地址。
+    会依次尝试从 X-Forwarded-For, X-Real-IP, CF-Connecting-IP 头中获取，
+    最后回退到 request.client.host。
+    """
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    return client_ip
