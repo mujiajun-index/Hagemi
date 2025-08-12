@@ -700,6 +700,13 @@ async def update_env_vars(request: Request, _: None = Depends(verify_password)):
     
     await reload_config()
     
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', "系统设置已更新", extra={'ip': client_ip, 'request_type': 'admin_update_env'})
+    logger.info(log_msg)
+    
     return JSONResponse(content={"message": "设置已更新并立即生效。"})
 # API 映射管理接口
 @app.get("/admin/api_mappings", dependencies=[Depends(verify_password)])
@@ -707,7 +714,7 @@ async def get_api_mappings_endpoint():
     return JSONResponse(content=get_api_mappings())
 
 @app.post("/admin/api_mappings", dependencies=[Depends(verify_password)])
-async def create_api_mapping(payload: dict = Body(...)):
+async def create_api_mapping(request: Request, payload: dict = Body(...)):
     mappings = get_api_mappings()
     prefix = payload.get("prefix")
     target_url = payload.get("target_url")
@@ -717,10 +724,16 @@ async def create_api_mapping(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="此前缀已存在")
     mappings[prefix] = target_url
     save_api_mappings()
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"API映射已创建: {prefix} -> {target_url}", extra={'ip': client_ip, 'request_type': 'admin_create_mapping'})
+    logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已创建"}, status_code=201)
 
 @app.put("/admin/api_mappings", dependencies=[Depends(verify_password)])
-async def update_api_mapping(payload: dict = Body(...)):
+async def update_api_mapping(request: Request, payload: dict = Body(...)):
     mappings = get_api_mappings()
     old_prefix = payload.get("old_prefix")
     new_prefix = payload.get("new_prefix")
@@ -742,16 +755,28 @@ async def update_api_mapping(payload: dict = Body(...)):
     mappings[new_prefix] = target_url
     
     save_api_mappings()
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"API映射已更新: {old_prefix} -> {new_prefix}", extra={'ip': client_ip, 'request_type': 'admin_update_mapping'})
+    logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已成功更新"})
 
 @app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_password)])
-async def delete_api_mapping(prefix: str):
+async def delete_api_mapping(request: Request, prefix: str):
     mappings = get_api_mappings()
     original_prefix = "/" + prefix
     if original_prefix not in mappings:
         raise HTTPException(status_code=404, detail=f"未找到此前缀: {original_prefix}")
     del mappings[original_prefix]
     save_api_mappings()
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"API映射已删除: {original_prefix}", extra={'ip': client_ip, 'request_type': 'admin_delete_mapping'})
+    logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已删除"})
 
 @app.post("/admin/check_gemini_key", dependencies=[Depends(verify_password)])
@@ -792,7 +817,7 @@ async def list_media(storage_type: str = 'local', page: int = 1, page_size: int 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/admin/media", dependencies=[Depends(verify_password)])
-async def delete_media(storage_type: str, filenames: List[str] = Body(...)):
+async def delete_media(request: Request, storage_type: str, filenames: List[str] = Body(...)):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
            (storage_type == 'local' and isinstance(global_image_storage, LocalImageStorage)):
@@ -807,6 +832,13 @@ async def delete_media(storage_type: str, filenames: List[str] = Body(...)):
             else:
                 failed_files.append(filename)
         
+        client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                    request.headers.get('X-Real-IP', '') or \
+                    request.headers.get('CF-Connecting-IP', '') or \
+                    request.client.host if request.client else "unknown_ip"
+        log_msg = format_log_message('INFO', f"删除了 {success_count} 个媒体文件", extra={'ip': client_ip, 'request_type': 'admin_delete_media'})
+        logger.info(log_msg)
+
         if failed_files:
             return {"message": f"成功删除 {success_count} 个文件，{len(failed_files)} 个失败: {', '.join(failed_files)}", "success": False}
         
@@ -838,7 +870,7 @@ async def get_keys():
     return get_access_keys()
 
 @app.post("/admin/keys", dependencies=[Depends(verify_password)])
-async def create_key(key_create: AccessKeyCreate):
+async def create_key(request: Request, key_create: AccessKeyCreate):
     access_keys = get_access_keys()
     new_key_str = "sk-" + generate_random_alphanumeric(64)
     
@@ -853,10 +885,18 @@ async def create_key(key_create: AccessKeyCreate):
     with access_keys_lock:
         access_keys[new_key.key] = new_key.dict()
         save_access_keys()
+    
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"访问密钥已创建: {new_key.key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_create_key'})
+    logger.info(log_msg)
+    
     return JSONResponse(content={"message": "密钥创建成功"})
 
 @app.put("/admin/keys/{key}", dependencies=[Depends(verify_password)])
-async def update_key(key: str, key_update: AccessKey):
+async def update_key(request: Request, key: str, key_update: AccessKey):
     access_keys = get_access_keys()
     if key not in access_keys:
         raise HTTPException(status_code=404, detail="要更新的密钥不存在")
@@ -868,16 +908,32 @@ async def update_key(key: str, key_update: AccessKey):
     with access_keys_lock:
         access_keys[key] = key_update.dict()
         save_access_keys()
+        
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"访问密钥已更新: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_update_key'})
+    logger.info(log_msg)
+    
     return JSONResponse(content={"message": "密钥更新成功"})
 
 @app.delete("/admin/keys/{key}", dependencies=[Depends(verify_password)])
-async def delete_key(key: str):
+async def delete_key(request: Request, key: str):
     access_keys = get_access_keys()
     if key not in access_keys:
         raise HTTPException(status_code=404, detail="密钥不存在")
     with access_keys_lock:
         del access_keys[key]
         save_access_keys()
+        
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
+    log_msg = format_log_message('INFO', f"访问密钥已删除: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_delete_key'})
+    logger.info(log_msg)
+    
     return JSONResponse(content={"message": "密钥删除成功"})
 
 # --- 路由注册 ---
@@ -897,10 +953,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         return
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
     except JWTError:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -922,6 +974,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                     await websocket.send_text(log_records[i])
                 last_sent_index = len(log_records)
             
-            await asyncio.sleep(0.1) # 每0.1秒检查一次
+            await asyncio.sleep(0.2) # 每0.2秒检查一次
     except WebSocketDisconnect:
         print("Client disconnected")

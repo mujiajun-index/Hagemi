@@ -30,7 +30,6 @@ def save_access_keys():
     """
     with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
         json.dump(access_keys, f, indent=4, ensure_ascii=False)
-    logger.info("访问密钥已成功保存。")
 
 def get_access_keys():
     """返回当前的访问密钥"""
@@ -52,7 +51,6 @@ def save_api_mappings():
     """将当前的 API 映射保存到 JSON 文件"""
     with open(API_MAPPINGS_FILE, 'w', encoding='utf-8') as f:
         json.dump(api_mappings, f, indent=4, ensure_ascii=False)
-    logger.info("API 映射已成功保存。")
 
 def get_api_mappings():
     """返回当前的 API 映射"""
