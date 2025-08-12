@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, log_records
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, log_records, get_client_ip
 import os
 import json
 import asyncio
@@ -215,10 +215,7 @@ async def startup_event():
 
 @app.get("/v1/models", response_model=ModelList)
 def list_models(request: Request):
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', "Received request to list models", extra={'ip': client_ip, 'request_type': 'list_models', 'status_code': 200})
     logger.info(log_msg)
     return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
@@ -226,10 +223,7 @@ def list_models(request: Request):
 # 校验密码逻辑
 async def verify_password(request: Request):
     auth_header = request.headers.get("Authorization")
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
 
     # IP黑名单检查
     if client_ip in blacklisted_ips:
@@ -343,10 +337,7 @@ async def verify_password(request: Request):
 async def process_request(chat_request: ChatCompletionRequest, http_request: Request, request_type: Literal['stream', 'non-stream']):
     global current_api_key
     
-    client_ip = http_request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                http_request.headers.get('X-Real-IP', '') or \
-                http_request.headers.get('CF-Connecting-IP', '') or \
-                http_request.client.host if http_request.client else "unknown_ip"
+    client_ip = get_client_ip(http_request)
 
     protect_from_abuse(
         http_request, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP)
@@ -644,10 +635,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 async def login_for_access_token(request: Request):
     data = await request.json()
     password = data.get("password")
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     if password != PASSWORD:
         log_msg = format_log_message('WARNING', "管理员登录失败: 密码错误", extra={'ip': client_ip, 'request_type': 'admin_login'})
         logger.warning(log_msg)
@@ -708,10 +696,7 @@ async def update_env_vars(request: Request, _: None = Depends(verify_password)):
     
     await reload_config()
     
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', "系统设置已更新", extra={'ip': client_ip, 'request_type': 'admin_update_env'})
     logger.info(log_msg)
     
@@ -732,10 +717,7 @@ async def create_api_mapping(request: Request, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="此前缀已存在")
     mappings[prefix] = target_url
     save_api_mappings()
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"API映射已创建: {prefix} -> {target_url}", extra={'ip': client_ip, 'request_type': 'admin_create_mapping'})
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已创建"}, status_code=201)
@@ -763,10 +745,7 @@ async def update_api_mapping(request: Request, payload: dict = Body(...)):
     mappings[new_prefix] = target_url
     
     save_api_mappings()
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"API映射已更新: {old_prefix} -> {new_prefix}", extra={'ip': client_ip, 'request_type': 'admin_update_mapping'})
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已成功更新"})
@@ -779,10 +758,7 @@ async def delete_api_mapping(request: Request, prefix: str):
         raise HTTPException(status_code=404, detail=f"未找到此前缀: {original_prefix}")
     del mappings[original_prefix]
     save_api_mappings()
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"API映射已删除: {original_prefix}", extra={'ip': client_ip, 'request_type': 'admin_delete_mapping'})
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已删除"})
@@ -840,10 +816,7 @@ async def delete_media(request: Request, storage_type: str, filenames: List[str]
             else:
                 failed_files.append(filename)
         
-        client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                    request.headers.get('X-Real-IP', '') or \
-                    request.headers.get('CF-Connecting-IP', '') or \
-                    request.client.host if request.client else "unknown_ip"
+        client_ip = get_client_ip(request)
         log_msg = format_log_message('INFO', f"删除了 {success_count} 个媒体文件", extra={'ip': client_ip, 'request_type': 'admin_delete_media'})
         logger.info(log_msg)
 
@@ -894,10 +867,7 @@ async def create_key(request: Request, key_create: AccessKeyCreate):
         access_keys[new_key.key] = new_key.dict()
         save_access_keys()
     
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"访问密钥已创建: {new_key.key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_create_key'})
     logger.info(log_msg)
     
@@ -917,10 +887,7 @@ async def update_key(request: Request, key: str, key_update: AccessKey):
         access_keys[key] = key_update.dict()
         save_access_keys()
         
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"访问密钥已更新: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_update_key'})
     logger.info(log_msg)
     
@@ -935,10 +902,7 @@ async def delete_key(request: Request, key: str):
         del access_keys[key]
         save_access_keys()
         
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.headers.get('CF-Connecting-IP', '') or \
-                request.client.host if request.client else "unknown_ip"
+    client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"访问密钥已删除: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_delete_key'})
     logger.info(log_msg)
     
