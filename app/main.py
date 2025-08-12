@@ -380,7 +380,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
                         
                         duration = time.monotonic() - start_time
-                        extra_log_success_stream = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
+                        extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
                         log_msg_success_stream = format_log_message('INFO', f"流式请求处理成功，耗时: {duration:.2f}s", extra=extra_log_success_stream)
                         logger.info(log_msg_success_stream)
                         
@@ -392,7 +392,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         logger.info(log_msg)
                     except Exception as e:
                         error_detail = handle_gemini_error(
-                            e, current_api_key, key_manager)
+                            e, current_api_key, key_manager, client_ip)
                         yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
                 return StreamingResponse(stream_generator(), media_type="text/event-stream")
             else:
@@ -477,9 +477,9 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             else:
                 raise  
         except Exception as e:
-            handle_gemini_error(e, current_api_key, key_manager)
-            if attempt < retry_attempts: 
-                switch_api_key() 
+            handle_gemini_error(e, current_api_key, key_manager, client_ip)
+            if attempt < retry_attempts:
+                switch_api_key()
                 continue
 
     msg = "所有API密钥均失败,请稍后重试"
