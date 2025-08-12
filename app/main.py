@@ -88,6 +88,10 @@ global_image_storage = get_image_storage()
 WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
 authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
 
+# IP黑名单
+BLACKLIST_IPS = os.environ.get("BLACKLIST_IPS", "").split(",")
+blacklisted_ips = set(ip.strip() for ip in BLACKLIST_IPS if ip.strip())
+
 PASSWORD = os.environ.get("PASSWORD", "123")
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
 MAX_REQUESTS_PER_DAY_PER_IP = int(
@@ -226,6 +230,12 @@ async def verify_password(request: Request):
                 request.headers.get('X-Real-IP', '') or \
                 request.headers.get('CF-Connecting-IP', '') or \
                 request.client.host if request.client else "unknown_ip"
+
+    # IP黑名单检查
+    if client_ip in blacklisted_ips:
+        log_msg = format_log_message('WARNING', f"IP {client_ip} is in the blacklist, access denied.", extra={'ip': client_ip, 'reason': 'in_blacklist'})
+        logger.warning(log_msg)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your IP address is blacklisted.")
 
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
@@ -555,6 +565,7 @@ async def get_env_vars(_: None = Depends(verify_password)):
             "MAX_REQUESTS_PER_DAY_PER_IP": {"label": "单IP每日最大请求数", "value": os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"), "description": "单个IP每天允许的最大请求次数。"},
             "EXTRA_MODELS": {"label": "自定义模型列表", "value": os.environ.get("EXTRA_MODELS", ""), "description": "自定义模型列表，多个请用逗号隔开。"},
             "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
+            "BLACKLIST_IPS": {"label": "IP黑名单", "value": os.environ.get("BLACKLIST_IPS", ""), "description": "禁止访问的IP地址，多个请用逗号隔开。"},
             "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
@@ -642,12 +653,14 @@ async def login_for_access_token(request: Request):
     return {"access_token": access_token, "token_type": "bearer"}
 
 async def reload_config():
-    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, global_image_storage, key_manager
+    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, global_image_storage, key_manager
 
     MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
     MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
     WHITELIST_IPS = os.environ.get("WHITELIST_IPS", "").split(",")
     authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
+    BLACKLIST_IPS = os.environ.get("BLACKLIST_IPS", "").split(",")
+    blacklisted_ips = set(ip.strip() for ip in BLACKLIST_IPS if ip.strip())
     # 重新初始化代理URL
     GeminiClient.BASE_URL = os.environ.get("PROXY_URL") or "https://generativelanguage.googleapis.com"
     # 重新初始化自定义模型列表
