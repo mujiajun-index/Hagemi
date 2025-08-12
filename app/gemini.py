@@ -269,7 +269,6 @@ class GeminiClient:
         return self.storage.save_image(mime_type, base64_data)
 
     async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
-        logger.info("流式开始 →")
         # 需要过滤contents 消息中的Markdown格式的图片、
         contents = self.filter_markdown_images(contents);
         # 此处根据 request.model 来判断是否是图片生成模型
@@ -368,9 +367,9 @@ class GeminiClient:
                 except Exception as e:
                     # logger.error(f"流式处理错误: {e}")
                     raise e
-                finally:
+                # finally:
                     # yield "![](https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png)"
-                    logger.info("流式结束 ←")
+                    # logger.info("请求结束")
 
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):

@@ -2,12 +2,14 @@ from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
 from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric
 import os
 import json
 import asyncio
+import time
 from typing import Literal, List
 import io
 from datetime import datetime, timedelta
@@ -57,6 +59,14 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许访问的源
+    allow_credentials=True,  # 支持 cookie
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有头部
+)
 templates = Jinja2Templates(directory="app/templates")
 
 from .config_manager import (
@@ -347,6 +357,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         extra_log = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A', 'error_message': ''}
         log_msg = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ... 使用密钥: {current_api_key[:8]}...", extra=extra_log)
         logger.info(log_msg)
+        start_time = time.monotonic()
 
         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
         try:
@@ -357,6 +368,12 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
                                                "model": chat_request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                        
+                        duration = time.monotonic() - start_time
+                        extra_log_success_stream = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
+                        log_msg_success_stream = format_log_message('INFO', f"流式请求处理成功，耗时: {duration:.2f}s", extra=extra_log_success_stream)
+                        logger.info(log_msg_success_stream)
+                        
                         yield "data: [DONE]\n\n"
 
                     except asyncio.CancelledError:
@@ -426,6 +443,12 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         extra_log_success = {'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
                         log_msg = format_log_message('INFO', "请求处理成功", extra=extra_log_success)
                         logger.info(log_msg)
+                        
+                        duration = time.monotonic() - start_time
+                        extra_log_success['duration_ms'] = round(duration * 1000)
+                        log_msg_duration = format_log_message('INFO', f"请求处理成功，耗时: {duration:.2f}s", extra=extra_log_success)
+                        logger.info(log_msg_duration)
+                        
                         return response
 
                 except asyncio.CancelledError:
