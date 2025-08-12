@@ -644,7 +644,13 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 async def login_for_access_token(request: Request):
     data = await request.json()
     password = data.get("password")
+    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+                request.headers.get('X-Real-IP', '') or \
+                request.headers.get('CF-Connecting-IP', '') or \
+                request.client.host if request.client else "unknown_ip"
     if password != PASSWORD:
+        log_msg = format_log_message('WARNING', "管理员登录失败: 密码错误", extra={'ip': client_ip, 'request_type': 'admin_login'})
+        logger.warning(log_msg)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="密码错误!",
@@ -654,6 +660,8 @@ async def login_for_access_token(request: Request):
     access_token = create_access_token(
         data={"sub": "admin"}, expires_delta=access_token_expires
     )
+    log_msg = format_log_message('INFO', "管理员登录成功", extra={'ip': client_ip, 'request_type': 'admin_login'})
+    logger.info(log_msg)
     return {"access_token": access_token, "token_type": "bearer"}
 
 async def reload_config():
