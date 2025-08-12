@@ -14,6 +14,16 @@ import sys
 import base64
 from typing import Tuple, Optional
 
+from collections import deque
+
+# 用于存储日志的全局变量
+log_records = deque(maxlen=100) # 最多存储100条日志
+
+class WebSocketLogHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        log_records.append(log_entry)
+
 def download_image_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
     """
     从HTTP URL下载图片并转换为base64格式
@@ -83,6 +93,11 @@ handler = logging.StreamHandler()
 # formatter = logging.Formatter('%(message)s')
 # handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+# 添加WebSocket日志处理器
+websocket_handler = WebSocketLogHandler()
+websocket_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(websocket_handler)
 
 def format_log_message(level, message, extra=None):
     extra = extra or {}

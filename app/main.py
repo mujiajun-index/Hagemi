@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, status, Body
+from fastapi import FastAPI, HTTPException, Request, Depends, status, Body, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, log_records
 import os
 import json
 import asyncio
@@ -556,6 +556,10 @@ async def root(request: Request):
 async def admin_page():
     return FileResponse("app/templates/admin.html")
 
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    return templates.TemplateResponse("logs.html", {"request": request})
+
 @app.get("/admin/env")
 async def get_env_vars(_: None = Depends(verify_password)):
     env_vars_config = {
@@ -885,3 +889,39 @@ app.include_router(static_proxy_router)
 
 # 在所有特定路由定义完成后，最后包含反向代理路由器
 app.include_router(proxy_router)
+
+@app.websocket("/ws/logs")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    # if not token:
+    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    #     return
+    # try:
+    #     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    #     username: str = payload.get("sub")
+    #     if username is None:
+    #         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    #         return
+    # except JWTError:
+    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    #     return
+
+    await websocket.accept()
+    
+    # 发送历史日志
+    for log_entry in list(log_records):
+        await websocket.send_text(log_entry)
+        
+    last_sent_index = len(log_records)
+
+    try:
+        while True:
+            # 检查是否有新的日志
+            if len(log_records) > last_sent_index:
+                # 发送新的日志
+                for i in range(last_sent_index, len(log_records)):
+                    await websocket.send_text(log_records[i])
+                last_sent_index = len(log_records)
+            
+            await asyncio.sleep(0.1) # 每0.1秒检查一次
+    except WebSocketDisconnect:
+        print("Client disconnected")

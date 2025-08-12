@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Logs</title>
+    <style>
+        body { font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; }
+        #log-container { white-space: pre-wrap; word-wrap: break-word; }
+        .log-line { padding: 2px 5px; }
+        .log-line.ERROR { color: #f44336; }
+        .log-line.WARNING { color: #ff9800; }
+        .log-line.INFO { color: #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>Real-time Logs</h1>
+    <div id="log-container"></div>
+
+    <script>
+        const logContainer = document.getElementById('log-container');
+        // const token = sessionStorage.getItem('admin-token');
+        const token = '123456';
+
+        if (!token) {
+            logContainer.innerHTML = '<div class="log-line ERROR">错误：未找到认证令牌，请先登录管理页面。</div>';
+        } else {
+            const socket = new WebSocket(`ws://${window.location.host}/ws/logs?token=${token}`);
+
+            socket.onmessage = function(event) {
+            const logLine = document.createElement('div');
+            const message = event.data;
+            
+            logLine.textContent = message;
+            logLine.className = 'log-line';
+
+            if (message.includes('ERROR')) {
+                logLine.classList.add('ERROR');
+            } else if (message.includes('WARNING')) {
+                logLine.classList.add('WARNING');
+            } else if (message.includes('INFO')) {
+                logLine.classList.add('INFO');
+            }
+            
+            logContainer.appendChild(logLine);
+            window.scrollTo(0, document.body.scrollHeight); // Auto-scroll to bottom
+        };
+
+        socket.onopen = function(event) {
+            console.log("WebSocket connection opened.");
+        };
+
+        socket.onclose = function(event) {
+            console.log("WebSocket connection closed.");
+        };
+
+            socket.onerror = function(error) {
+                console.error("WebSocket error:", error);
+                logContainer.appendChild(document.createElement('div')).className = 'log-line ERROR';
+                logContainer.lastChild.textContent = 'WebSocket 连接出错。';
+            };
+        }
+    </script>
+</body>
+</html>
