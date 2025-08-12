@@ -19,8 +19,7 @@
 
     <script>
         const logContainer = document.getElementById('log-container');
-        // const token = sessionStorage.getItem('admin-token');
-        const token = '123456';
+        const token = localStorage.getItem('admin-token');
 
         if (!token) {
             logContainer.innerHTML = '<div class="log-line ERROR">错误：未找到认证令牌，请先登录管理页面。</div>';

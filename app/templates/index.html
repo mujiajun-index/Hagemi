@@ -229,7 +229,7 @@
                 })
                 .then(data => {
                     if (data.access_token) {
-                        sessionStorage.setItem('admin-token', data.access_token);
+                        localStorage.setItem('admin-token', data.access_token);
                         window.location.href = '/admin';
                     } else {
                         alert(data.detail || '登录失败');

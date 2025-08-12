@@ -892,18 +892,18 @@ app.include_router(proxy_router)
 
 @app.websocket("/ws/logs")
 async def websocket_endpoint(websocket: WebSocket, token: str = None):
-    # if not token:
-    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-    #     return
-    # try:
-    #     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    #     username: str = payload.get("sub")
-    #     if username is None:
-    #         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-    #         return
-    # except JWTError:
-    #     await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-    #     return
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     await websocket.accept()
     

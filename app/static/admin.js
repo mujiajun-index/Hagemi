@@ -6,7 +6,7 @@ function hideLoader() {
     document.getElementById('loader').style.display = 'none';
 }
 document.addEventListener('DOMContentLoaded', function() {
-    const token = sessionStorage.getItem('admin-token');
+    const token = localStorage.getItem('admin-token');
     if (!token) {
         alert('请先登录');
         window.location.href = '/';
@@ -148,7 +148,7 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
     });
 }
 
-const token = sessionStorage.getItem('admin-token');
+const token = localStorage.getItem('admin-token');
 
 function loadApiMappings() {
     fetch('/admin/api_mappings', {
@@ -294,7 +294,7 @@ async function saveGroupSettings(groupContentElement) {
     });
     data.password = password;
 
-    const token = sessionStorage.getItem('admin-token');
+    const token = localStorage.getItem('admin-token');
     showLoader();
     try {
         const response = await fetch('/admin/update', {
@@ -600,7 +600,7 @@ async function checkAllKeysAvailability() {
 }
 
 function logout() {
-    sessionStorage.removeItem('admin-token');
+    localStorage.removeItem('admin-token');
     window.location.href = '/';
 }
 // --- Media Gallery Logic ---
@@ -624,7 +624,7 @@ async function fetchMedia(page = 1, storageType = 'local', pageSize = 10) {
     mediaGridContainer.innerHTML = '';
     paginationContainer.innerHTML = '';
 
-    const token = sessionStorage.getItem('admin-token');
+    const token = localStorage.getItem('admin-token');
     try {
         const response = await fetch(`/admin/media?storage_type=${storageType}&page=${page}&page_size=${pageSize}`, {
             headers: { 'Authorization': 'Bearer ' + token }
@@ -857,7 +857,7 @@ deleteSelectedBtn.addEventListener('click', async () => {
 
     const confirmed = await showConfirm('确认删除', `您确定要删除选中的 ${selectedFiles.length} 个文件吗？此操作不可恢复。`);
     if (confirmed) {
-        const token = sessionStorage.getItem('admin-token');
+        const token = localStorage.getItem('admin-token');
         showLoader();
         try {
             const response = await fetch(`/admin/media?storage_type=${currentStorageType}`, {
@@ -973,7 +973,7 @@ function fetchStorageDetails(storageType) {
         container.style.display = 'none';
         return;
     }
-    const token = sessionStorage.getItem('admin-token');
+    const token = localStorage.getItem('admin-token');
     fetch(`/admin/storage_details?storage_type=${storageType}`, {
         headers: { 'Authorization': `Bearer ${token}` }
     })
