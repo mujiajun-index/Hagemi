@@ -213,12 +213,23 @@ async def startup_event():
     logger.info(log_msg)
     await reload_keys()
 
-@app.get("/v1/models", response_model=ModelList)
-def list_models(request: Request):
-    client_ip = get_client_ip(request)
-    log_msg = format_log_message('INFO', "Received request to list models", extra={'ip': client_ip, 'request_type': 'list_models', 'status_code': 200})
-    logger.info(log_msg)
-    return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
+
+def update_access_key_usage(token: str):
+    if token.startswith("sk-"):
+        access_keys = get_access_keys()
+        key_data = access_keys.get(token)
+        if key_data:
+            key = AccessKey(**key_data)
+            if key.is_active and key.usage_limit is not None and key.usage_limit > 0:
+                with access_keys_lock:
+                    # Re-fetch to ensure atomicity
+                    key_data = access_keys.get(token)
+                    if key_data:
+                        key = AccessKey(**key_data)
+                        key.usage_count += 1
+                        access_keys[token] = key.dict()
+                        save_access_keys()
+
 
 # 校验密码逻辑
 async def verify_password(request: Request):
@@ -259,13 +270,6 @@ async def verify_password(request: Request):
                         log_msg = format_log_message('INFO', f"IP: {client_ip} Access key {token} usage limit exceeded")
                         logger.info(log_msg)
                         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key usage limit exceeded")
-                    if key.usage_limit is not None and key.usage_limit > 0:
-                        # 更新使用次数
-                        with access_keys_lock:
-                            key = AccessKey(**access_keys.get(token))
-                            key.usage_count += 1
-                            access_keys[token] = key.dict()
-                            save_access_keys()
                     return True
                 else:
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key is lose efficacy")
@@ -490,9 +494,19 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
 
+@app.get("/v1/models", response_model=ModelList)
+def list_models(request: Request, _: None = Depends(verify_password)):
+    client_ip = get_client_ip(request)
+    log_msg = format_log_message('INFO', "Received request to list models", extra={'ip': client_ip, 'request_type': 'list_models', 'status_code': 200})
+    logger.info(log_msg)
+    return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in GeminiClient.AVAILABLE_MODELS])
 
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
 async def chat_completions(request: ChatCompletionRequest, http_request: Request, _: None = Depends(verify_password)):
+    auth_header = http_request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        update_access_key_usage(token)
     return await process_request(request, http_request, "stream" if request.stream else "non-stream")
 
 
