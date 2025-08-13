@@ -231,6 +231,30 @@ def update_access_key_usage(token: str):
                         save_access_keys()
 
 
+# 专门用于Admin后台的JWT Token验证
+async def verify_jwt_token(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
+        return True # Token有效
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 # 校验密码逻辑
 async def verify_password(request: Request):
     auth_header = request.headers.get("Authorization")
@@ -273,17 +297,6 @@ async def verify_password(request: Request):
                     return True
                 else:
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Access key is lose efficacy")
-
-        # 尝试JWT Token验证
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            username: str = payload.get("sub")
-            if username is None:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
-            return True # Token有效
-        except JWTError:
-            # 如果JWT验证失败，继续尝试原始的密码验证逻辑
-            pass
 
         # 原始密码验证
         if token == PASSWORD:
@@ -333,7 +346,7 @@ async def verify_password(request: Request):
     if auth_header and not auth_header.startswith("Bearer "):
         detail_message = "Unauthorized: Invalid token type. Bearer token required."
     
-    logger.warning(format_log_message('WARNING', f"Auth failed for IP {client_ip}: {detail_message}", 
+    logger.warning(format_log_message('WARNING', f"Auth failed for IP {client_ip}: {detail_message}",
                                      extra={'ip': client_ip, 'reason': 'All auth methods failed'}))
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail_message)
 
@@ -566,7 +579,7 @@ async def logs_page(request: Request):
     return templates.TemplateResponse("logs.html", {"request": request})
 
 @app.get("/admin/env")
-async def get_env_vars(_: None = Depends(verify_password)):
+async def get_env_vars(_: None = Depends(verify_jwt_token)):
     env_vars_config = {
         "API与访问控制": {
             "GEMINI_API_KEYS": {"label": "Gemini API 密钥", "value": os.environ.get("GEMINI_API_KEYS", ""), "type": "password", "description": "您的Gemini API密钥，多个请用逗号隔开。"},
@@ -698,7 +711,7 @@ async def reload_config():
 
 
 @app.post("/admin/update")
-async def update_env_vars(request: Request, _: None = Depends(verify_password)):
+async def update_env_vars(request: Request, _: None = Depends(verify_jwt_token)):
     data = await request.json()
     password = data.pop("password", None)
 
@@ -716,11 +729,11 @@ async def update_env_vars(request: Request, _: None = Depends(verify_password)):
     
     return JSONResponse(content={"message": "设置已更新并立即生效。"})
 # API 映射管理接口
-@app.get("/admin/api_mappings", dependencies=[Depends(verify_password)])
+@app.get("/admin/api_mappings", dependencies=[Depends(verify_jwt_token)])
 async def get_api_mappings_endpoint():
     return JSONResponse(content=get_api_mappings())
 
-@app.post("/admin/api_mappings", dependencies=[Depends(verify_password)])
+@app.post("/admin/api_mappings", dependencies=[Depends(verify_jwt_token)])
 async def create_api_mapping(request: Request, payload: dict = Body(...)):
     mappings = get_api_mappings()
     prefix = payload.get("prefix")
@@ -736,7 +749,7 @@ async def create_api_mapping(request: Request, payload: dict = Body(...)):
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已创建"}, status_code=201)
 
-@app.put("/admin/api_mappings", dependencies=[Depends(verify_password)])
+@app.put("/admin/api_mappings", dependencies=[Depends(verify_jwt_token)])
 async def update_api_mapping(request: Request, payload: dict = Body(...)):
     mappings = get_api_mappings()
     old_prefix = payload.get("old_prefix")
@@ -764,7 +777,7 @@ async def update_api_mapping(request: Request, payload: dict = Body(...)):
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已成功更新"})
 
-@app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_password)])
+@app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_jwt_token)])
 async def delete_api_mapping(request: Request, prefix: str):
     mappings = get_api_mappings()
     original_prefix = "/" + prefix
@@ -777,7 +790,7 @@ async def delete_api_mapping(request: Request, prefix: str):
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已删除"})
 
-@app.post("/admin/check_gemini_key", dependencies=[Depends(verify_password)])
+@app.post("/admin/check_gemini_key", dependencies=[Depends(verify_jwt_token)])
 async def check_gemini_key(payload: dict = Body(...)):
     api_key = payload.get("key")
     if not api_key:
@@ -795,7 +808,7 @@ async def check_gemini_key(payload: dict = Body(...)):
         logger.error(f"检查密钥时发生未知错误: {e}")
         return JSONResponse(status_code=500, content={"valid": False, "message": f"检查密钥时发生内部错误: {str(e)}"})
 
-@app.get("/admin/media", dependencies=[Depends(verify_password)])
+@app.get("/admin/media", dependencies=[Depends(verify_jwt_token)])
 async def list_media(storage_type: str = 'local', page: int = 1, page_size: int = 10):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
@@ -814,7 +827,7 @@ async def list_media(storage_type: str = 'local', page: int = 1, page_size: int 
         logger.error(f"获取媒体文件列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/admin/media", dependencies=[Depends(verify_password)])
+@app.delete("/admin/media", dependencies=[Depends(verify_jwt_token)])
 async def delete_media(request: Request, storage_type: str, filenames: List[str] = Body(...)):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
@@ -842,7 +855,7 @@ async def delete_media(request: Request, storage_type: str, filenames: List[str]
         logger.error(f"批量删除文件失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/admin/storage_details", dependencies=[Depends(verify_password)])
+@app.get("/admin/storage_details", dependencies=[Depends(verify_jwt_token)])
 async def get_storage_details(storage_type: str = 'local'):
     try:
         if (storage_type == 'memory' and isinstance(global_image_storage, MemoryImageStorage)) or \
@@ -860,11 +873,11 @@ async def get_storage_details(storage_type: str = 'local'):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/admin/keys", dependencies=[Depends(verify_password)])
+@app.get("/admin/keys", dependencies=[Depends(verify_jwt_token)])
 async def get_keys():
     return get_access_keys()
 
-@app.post("/admin/keys", dependencies=[Depends(verify_password)])
+@app.post("/admin/keys", dependencies=[Depends(verify_jwt_token)])
 async def create_key(request: Request, key_create: AccessKeyCreate):
     access_keys = get_access_keys()
     new_key_str = "sk-" + generate_random_alphanumeric(64)
@@ -887,7 +900,7 @@ async def create_key(request: Request, key_create: AccessKeyCreate):
     
     return JSONResponse(content={"message": "密钥创建成功"})
 
-@app.put("/admin/keys/{key}", dependencies=[Depends(verify_password)])
+@app.put("/admin/keys/{key}", dependencies=[Depends(verify_jwt_token)])
 async def update_key(request: Request, key: str, key_update: AccessKey):
     access_keys = get_access_keys()
     if key not in access_keys:
@@ -907,7 +920,7 @@ async def update_key(request: Request, key: str, key_update: AccessKey):
     
     return JSONResponse(content={"message": "密钥更新成功"})
 
-@app.delete("/admin/keys/{key}", dependencies=[Depends(verify_password)])
+@app.delete("/admin/keys/{key}", dependencies=[Depends(verify_jwt_token)])
 async def delete_key(request: Request, key: str):
     access_keys = get_access_keys()
     if key not in access_keys:
