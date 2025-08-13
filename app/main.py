@@ -404,7 +404,10 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         
                         duration = time.monotonic() - start_time
                         extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
-                        log_msg_success_stream = format_log_message('INFO', f"流式请求处理成功，耗时: {duration:.2f}s", extra=extra_log_success_stream)
+                        log_message_text_stream = f"流式请求处理成功，耗时: {duration:.2f}s"
+                        if token and token.startswith("sk-"):
+                            log_message_text_stream += f" 使用密钥: {token[:10]}..."
+                        log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
                         logger.info(log_msg_success_stream)
                         
                         yield "data: [DONE]\n\n"
@@ -479,7 +482,10 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         
                         duration = time.monotonic() - start_time
                         extra_log_success['duration_ms'] = round(duration * 1000)
-                        log_msg_duration = format_log_message('INFO', f"请求处理成功，耗时: {duration:.2f}s", extra=extra_log_success)
+                        log_message_text_duration = f"请求处理成功，耗时: {duration:.2f}s"
+                        if token and token.startswith("sk-"):
+                            log_message_text_duration += f" 使用密钥: {token[:10]}..."
+                        log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log_success)
                         logger.info(log_msg_duration)
                         
                         return response
