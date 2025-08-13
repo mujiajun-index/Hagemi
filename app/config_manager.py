@@ -1,6 +1,8 @@
 import json
 import logging
 import threading
+import schedule
+import time
 
 logger = logging.getLogger('my_logger')
 
@@ -55,3 +57,39 @@ def save_api_mappings():
 def get_api_mappings():
     """返回当前的 API 映射"""
     return api_mappings
+
+def reset_daily_usage_counts():
+    """
+    重置启用了每日重置的密钥的使用次数。
+    """
+    with access_keys_lock:
+        logger.info("开始执行每日使用次数重置任务...")
+        updated = False
+        for key_id, key_data in access_keys.items():
+            if key_data.get('reset_daily'):
+                if key_data.get('usage_count', 0) != 0:
+                    key_data['usage_count'] = 0
+                    updated = True
+                    logger.info(f"密钥 '{key_data.get('name', key_id)}' 的使用次数已重置。")
+        
+        if updated:
+            save_access_keys()
+            logger.info("已保存重置后的访问密钥。")
+        else:
+            logger.info("没有需要重置使用次数的密钥。")
+
+def schedule_daily_reset():
+    """
+    安排每日午夜执行重置任务。
+    """
+    schedule.every().day.at("00:00").do(reset_daily_usage_counts)
+    logger.info("已成功安排每日使用次数重置任务。")
+
+    # 在一个单独的线程中运行调度程序，以避免阻塞主线程
+    def run_scheduler():
+        while True:
+            schedule.run_pending()
+            time.sleep(60) # 每分钟检查一次
+
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()

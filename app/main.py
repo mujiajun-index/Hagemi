@@ -71,7 +71,8 @@ templates = Jinja2Templates(directory="app/templates")
 
 from .config_manager import (
     load_api_mappings, save_api_mappings, get_api_mappings,
-    load_access_keys, save_access_keys, get_access_keys, access_keys_lock
+    load_access_keys, save_access_keys, get_access_keys, access_keys_lock,
+    schedule_daily_reset
 )
 
 # 挂载静态文件目录
@@ -209,6 +210,7 @@ async def reload_keys():
 async def startup_event():
     load_api_mappings()
     load_access_keys()
+    schedule_daily_reset()
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
     logger.info(log_msg)
     await reload_keys()
@@ -885,6 +887,9 @@ async def create_key(request: Request, key_create: AccessKeyCreate):
     while new_key_str in access_keys:
         new_key_str = "sk-" + generate_random_alphanumeric(64)
 
+    if key_create.usage_limit is None:
+        key_create.reset_daily = False
+
     new_key = AccessKey(
         key=new_key_str,
         **key_create.dict()
@@ -908,6 +913,9 @@ async def update_key(request: Request, key: str, key_update: AccessKey):
 
     # Key本身不应改变，但如果前端发送的key与AccessKey对象中的不一致，则以URL中的为准
     key_update.key = key
+
+    if key_update.usage_limit is None:
+        key_update.reset_daily = False
     
     # 更新字典
     with access_keys_lock:

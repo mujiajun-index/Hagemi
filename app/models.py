@@ -52,9 +52,12 @@ class AccessKey(BaseModel):
     usage_count: int = 0
     expires_at: Optional[int] = None
     is_active: bool = True
+    reset_daily: bool = False
+
 
 class AccessKeyCreate(BaseModel):
     name: Optional[str] = None
     usage_limit: Optional[int] = None
     expires_at: Optional[int] = None
     is_active: bool = True
+    reset_daily: bool = False

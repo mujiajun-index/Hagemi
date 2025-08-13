@@ -1032,6 +1032,8 @@ function loadAccessKeys() {
             const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit} 次` : '无限制';
             const statusClass = key.is_active ? 'status-active' : 'status-inactive';
             const statusText = key.is_active ? '有效' : '无效';
+            const resetDailyText = key.reset_daily ? '是' : '否';
+            const resetDailyClass = key.reset_daily ? 'status-active' : 'status-inactive';
             const row = `
                 <tr>
                     <td>${index + 1}</td>
@@ -1040,6 +1042,7 @@ function loadAccessKeys() {
                     <td>${usage}</td>
                     <td>${expires}</td>
                     <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td><span class="status-badge ${resetDailyClass}">${resetDailyText}</span></td>
                     <td>
                         <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')" title="编辑">✏️</button>
                         <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}', '${encodeURIComponent(key.name || '')}')" title="删除">🗑️</button>
@@ -1071,6 +1074,18 @@ function showAccessKeyPrompt(title, keyData = {}) {
         const expiresAtInput = document.getElementById('modal-input-expires-at');
         const isActiveContainer = document.getElementById('modal-is-active-container');
         const isActiveInput = document.getElementById('modal-input-is-active');
+        const resetDailyContainer = document.getElementById('modal-reset-daily-container');
+        const resetDailyInput = document.getElementById('modal-input-reset-daily');
+
+        const toggleResetDaily = () => {
+            const isUnlimited = usageLimitInput.value.trim() === '';
+            resetDailyInput.disabled = isUnlimited;
+            if (isUnlimited) {
+                resetDailyInput.checked = false;
+            }
+        };
+
+        usageLimitInput.addEventListener('input', toggleResetDaily);
 
         // Populate with existing data if available (for editing)
         nameInput.value = keyData.name || '';
@@ -1085,12 +1100,20 @@ function showAccessKeyPrompt(title, keyData = {}) {
             expiresAtInput.value = '';
         }
         
+        // "每日重置" 选项在添加和编辑时都可见
+        resetDailyContainer.style.display = 'block';
+        resetDailyInput.checked = keyData.reset_daily || false;
+
+        // "是否启用" 选项仅在编辑时可见
         if (keyData.hasOwnProperty('is_active')) {
             isActiveContainer.style.display = 'block';
             isActiveInput.checked = keyData.is_active;
         } else {
             isActiveContainer.style.display = 'none';
         }
+
+        // Set initial state for the reset_daily switch
+        toggleResetDaily();
 
         nameInput.focus();
 
@@ -1112,7 +1135,8 @@ function showAccessKeyPrompt(title, keyData = {}) {
                     name: name,
                     usage_limit: usage_limit ? parseInt(usage_limit, 10) : null,
                     expires_at: expires_at_timestamp,
-                    is_active: keyData.hasOwnProperty('is_active') ? isActiveInput.checked : true
+                    is_active: keyData.hasOwnProperty('is_active') ? isActiveInput.checked : true,
+                    reset_daily: resetDailyInput.checked
                 });
             }
             hideModal();
@@ -1145,7 +1169,8 @@ async function addAccessKey() {
         name: result.name,
         usage_limit: result.usage_limit,
         expires_at: result.expires_at,
-        is_active: true
+        is_active: true,
+        reset_daily: result.reset_daily
     };
 
     showLoader();
@@ -1195,6 +1220,7 @@ async function editAccessKey(key) {
         usage_limit: result.usage_limit,
         expires_at: result.expires_at,
         is_active: result.is_active,
+        reset_daily: result.reset_daily,
         usage_count: key_data.usage_count
     };
 
