@@ -353,7 +353,7 @@ async def verify_password(request: Request):
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail_message)
 
 
-async def process_request(chat_request: ChatCompletionRequest, http_request: Request, request_type: Literal['stream', 'non-stream']):
+async def process_request(chat_request: ChatCompletionRequest, http_request: Request, request_type: Literal['stream', 'non-stream'],token:str = None):
     global current_api_key
     
     client_ip = get_client_ip(http_request)
@@ -385,7 +385,10 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             break  # 如果没有可用密钥，跳出循环
 
         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A', 'error_message': ''}
-        log_msg = format_log_message('INFO', f"第 {attempt}/{retry_attempts} 次尝试 ... 使用密钥: {current_api_key[:8]}...", extra=extra_log)
+        log_message_text = f"第 {attempt}/{retry_attempts} 次尝试请求中"
+        if token and token.startswith("sk-"):
+            log_message_text += f" 使用密钥: {token[:10]}..."
+        log_msg = format_log_message('INFO', log_message_text, extra=extra_log)
         logger.info(log_msg)
         start_time = time.monotonic()
 
@@ -519,10 +522,11 @@ def list_models(request: Request, _: None = Depends(verify_password)):
 @app.post("/v1/chat/completions", response_model=ChatCompletionResponse)
 async def chat_completions(request: ChatCompletionRequest, http_request: Request, _: None = Depends(verify_password)):
     auth_header = http_request.headers.get("Authorization")
+    token = None
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         update_access_key_usage(token)
-    return await process_request(request, http_request, "stream" if request.stream else "non-stream")
+    return await process_request(request, http_request, "stream" if request.stream else "non-stream",token)
 
 
 @app.exception_handler(Exception)
