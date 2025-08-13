@@ -385,7 +385,13 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             break  # 如果没有可用密钥，跳出循环
 
         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A', 'error_message': ''}
-        log_message_text = f"第 {attempt}/{retry_attempts} 次尝试请求中"
+        request_token_count = 0
+        for message in chat_request.messages:
+            if isinstance(message.content, str):
+                request_token_count += len(message.content)
+            elif isinstance(message.content, list):
+                request_token_count += sum(len(json.dumps(p)) for p in message.content)
+        log_message_text = f"第 {attempt}/{retry_attempts} 次尝试请求中, 请求token: {request_token_count}"
         if token and token.startswith("sk-"):
             log_message_text += f" 使用密钥: {token[:10]}..."
         log_msg = format_log_message('INFO', log_message_text, extra=extra_log)
@@ -397,14 +403,16 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             if chat_request.stream:
                 async def stream_generator():
                     try:
+                        response_text = ""
                         async for chunk in gemini_client.stream_chat(chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction):
+                            response_text += chunk
                             formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
                                                "model": chat_request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
                         
                         duration = time.monotonic() - start_time
                         extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
-                        log_message_text_stream = f"流式请求处理成功，耗时: {duration:.2f}s"
+                        log_message_text_stream = f"流式请求处理成功，耗时: {duration:.2f}s, 输出token: {len(response_text)}"
                         if token and token.startswith("sk-"):
                             log_message_text_stream += f" 使用密钥: {token[:10]}..."
                         log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
@@ -482,7 +490,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         
                         duration = time.monotonic() - start_time
                         extra_log_success['duration_ms'] = round(duration * 1000)
-                        log_message_text_duration = f"请求处理成功，耗时: {duration:.2f}s"
+                        log_message_text_duration = f"请求处理成功，耗时: {duration:.2f}s, 输出token: {len(response_content.text)}"
                         if token and token.startswith("sk-"):
                             log_message_text_duration += f" 使用密钥: {token[:10]}..."
                         log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log_success)
