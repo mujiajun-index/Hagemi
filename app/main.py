@@ -995,6 +995,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                 # 发送最新日志
                     await websocket.send_text(log_records[-1])
                     set_log_new(False)
-            await asyncio.sleep(0.2)  # 每0.2秒检查一次
+            await asyncio.sleep(0.1)  # 每0.1秒检查一次
     except WebSocketDisconnect:
         print("Client disconnected")
