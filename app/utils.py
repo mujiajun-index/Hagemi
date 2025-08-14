@@ -251,18 +251,18 @@ def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") ->
 
     elif isinstance(error, requests.exceptions.ConnectionError):
         error_message = "连接错误"
-        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'error_message': error_message})
+        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
         logger.warning(log_msg)
         return error_message
 
     elif isinstance(error, requests.exceptions.Timeout):
         error_message = "请求超时"
-        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'error_message': error_message})
+        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
         logger.warning(log_msg)
         return error_message
     else:
         error_message = f"发生未知错误: {error}"
-        log_msg = format_log_message('ERROR', error_message, extra={'ip': client_ip, 'error_message': error_message})
+        log_msg = format_log_message('ERROR', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
         logger.error(log_msg)
         return error_message
 
