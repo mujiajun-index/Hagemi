@@ -5,7 +5,9 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, log_records, get_client_ip
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, get_client_ip,log_records,get_log_new,set_log_new,download_image_to_base64
+
+
 import os
 import json
 import asyncio
@@ -980,22 +982,19 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         return
 
     await websocket.accept()
-    
-    # 发送历史日志
+
+    # 发送所有当前日志
     for log_entry in list(log_records):
         await websocket.send_text(log_entry)
-        
-    last_sent_index = len(log_records)
+        set_log_new(False)
 
     try:
         while True:
             # 检查是否有新的日志
-            if len(log_records) > last_sent_index:
-                # 发送新的日志
-                for i in range(last_sent_index, len(log_records)):
-                    await websocket.send_text(log_records[i])
-                last_sent_index = len(log_records)
-            
-            await asyncio.sleep(0.2) # 每0.2秒检查一次
+            if get_log_new():
+                # 发送最新日志
+                    await websocket.send_text(log_records[-1])
+                    set_log_new(False)
+            await asyncio.sleep(0.2)  # 每0.2秒检查一次
     except WebSocketDisconnect:
         print("Client disconnected")

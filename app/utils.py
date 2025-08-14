@@ -13,16 +13,25 @@ import logging
 import sys
 import base64
 from typing import Tuple, Optional
-
 from collections import deque
-
 # 用于存储日志的全局变量
 log_records = deque(maxlen=100) # 最多存储100条日志
+log_new_lock = Lock() # 用于保护标识新日志的锁
+log_new = False # 标识是否有新日志
+
 
 class WebSocketLogHandler(logging.Handler):
     def emit(self, record):
         log_entry = self.format(record)
+        set_log_new(True)
         log_records.append(log_entry)
+
+def set_log_new(new: bool):
+    with log_new_lock:
+        global log_new
+        log_new = new
+def get_log_new():
+        return log_new
 
 def download_image_to_base64(url: str) -> Tuple[Optional[str], Optional[str]]:
     """
