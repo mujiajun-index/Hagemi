@@ -24,7 +24,8 @@
         if (!token) {
             logContainer.innerHTML = '<div class="log-line ERROR">错误：未找到认证令牌，请先登录管理页面。</div>';
         } else {
-            const socket = new WebSocket(`ws://${window.location.host}/ws/logs?token=${token}`);
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const socket = new WebSocket(`${protocol}://${window.location.host}/ws/logs?token=${token}`);
 
             socket.onmessage = function(event) {
             const logLine = document.createElement('div');
