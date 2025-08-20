@@ -1,1 +1,35 @@
-{}
+{
+    "sk-GMLfxirhHZcogvD7I2tFAsYJrRg3NYsJJ9z2LeZeKq2x1UBZMUHkrfXf2xQdvz01": {
+        "key": "sk-GMLfxirhHZcogvD7I2tFAsYJrRg3NYsJJ9z2LeZeKq2x1UBZMUHkrfXf2xQdvz01",
+        "name": "key",
+        "usage_limit": 100,
+        "usage_count": 1,
+        "expires_at": null,
+        "is_active": true
+    },
+    "sk-4eqKKExLunpRZoKAt9E8pwJYeomW4apTgvbEo9K1FlKqGoMQewQ6wSslHOPv43FF": {
+        "key": "sk-4eqKKExLunpRZoKAt9E8pwJYeomW4apTgvbEo9K1FlKqGoMQewQ6wSslHOPv43FF",
+        "name": "test",
+        "usage_limit": null,
+        "usage_count": 0,
+        "expires_at": null,
+        "is_active": true
+    },
+    "sk-mxnjbTtDs4C4B5WmqqeZ2WIR97DR9tHG9LyOGzuBdJ1az8E9jXsNL60kmiVZXkCI": {
+        "key": "sk-mxnjbTtDs4C4B5WmqqeZ2WIR97DR9tHG9LyOGzuBdJ1az8E9jXsNL60kmiVZXkCI",
+        "name": "test2",
+        "usage_limit": 100,
+        "usage_count": 0,
+        "expires_at": null,
+        "is_active": true
+    },
+    "sk-eeDfrWhHMZSfENxRUSexs4ekHtz2u3K5zkgjpIiQCfiXaEQUaVAp7H1jth5zaHbD": {
+        "key": "sk-eeDfrWhHMZSfENxRUSexs4ekHtz2u3K5zkgjpIiQCfiXaEQUaVAp7H1jth5zaHbD",
+        "name": "test3",
+        "usage_limit": 123,
+        "usage_count": 90,
+        "expires_at": null,
+        "is_active": true,
+        "reset_daily": true
+    }
+}
