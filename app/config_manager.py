@@ -3,6 +3,7 @@ import logging
 import threading
 import schedule
 import time
+import os
 from app.utils import format_log_message
 
 logger = logging.getLogger('my_logger')
@@ -13,6 +14,36 @@ access_keys = {}
 
 ACCESS_KEYS_FILE = "app/access_keys.json"
 access_keys_lock = threading.Lock()
+
+GEMINI_API_KEYS_FILE = "app/gemini_api_keys.json"
+gemini_api_keys = []
+gemini_api_keys_lock = threading.Lock()
+
+def load_gemini_api_keys():
+    """从 JSON 文件加载 Gemini API 密钥到全局变量"""
+    global gemini_api_keys
+    try:
+        with open(GEMINI_API_KEYS_FILE, 'r', encoding='utf-8') as f:
+            gemini_api_keys = json.load(f)
+        logger.info(format_log_message('INFO', f"成功加载 Gemini API 密钥: {len(gemini_api_keys)} 个"))
+        if gemini_api_keys:
+            os.environ['GEMINI_API_KEYS'] = ",".join(gemini_api_keys)
+    except (FileNotFoundError, json.JSONDecodeError):
+        logger.warning(format_log_message('WARNING', f"未找到或无法解析 {GEMINI_API_KEYS_FILE}，将创建新文件。"))
+        gemini_api_keys = []
+        save_gemini_api_keys()
+
+def save_gemini_api_keys():
+    """
+    将当前的 Gemini API 密钥保存到 JSON 文件。
+    注意：此函数不处理锁，调用方必须确保在线程安全的环境中调用。
+    """
+    with open(GEMINI_API_KEYS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(gemini_api_keys, f, indent=4, ensure_ascii=False)
+
+def get_gemini_api_keys():
+    """返回当前的 Gemini API 密钥"""
+    return gemini_api_keys
 
 def load_access_keys():
     """从 JSON 文件加载访问密钥到全局变量"""

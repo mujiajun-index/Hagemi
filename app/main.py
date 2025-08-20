@@ -74,6 +74,7 @@ templates = Jinja2Templates(directory="app/templates")
 from .config_manager import (
     load_api_mappings, save_api_mappings, get_api_mappings,
     load_access_keys, save_access_keys, get_access_keys, access_keys_lock,
+    load_gemini_api_keys, save_gemini_api_keys, get_gemini_api_keys,
     schedule_daily_reset
 )
 
@@ -148,8 +149,8 @@ safety_settings_g2 = [
     }
 ]
 
-key_manager = APIKeyManager() # 实例化 APIKeyManager，栈会在 __init__ 中初始化
-current_api_key = key_manager.get_available_key()
+key_manager = None
+current_api_key = None
 
 
 def switch_api_key():
@@ -166,7 +167,7 @@ def switch_api_key():
 
 async def check_keys():
     available_keys = []
-    for key in key_manager.api_keys:
+    for key in get_gemini_api_keys():
         is_valid = await test_api_key(key)
         status_msg = "有效" if is_valid else "无效"
         log_msg = format_log_message('INFO', f"API Key {key[:10]}... {status_msg}.")
@@ -212,6 +213,10 @@ async def reload_keys():
 async def startup_event():
     load_api_mappings()
     load_access_keys()
+    load_gemini_api_keys()
+    global key_manager, current_api_key
+    key_manager = APIKeyManager(get_gemini_api_keys()) # 实例化 APIKeyManager，栈会在 __init__ 中初始化
+    current_api_key = key_manager.get_available_key()
     schedule_daily_reset()
     log_msg = format_log_message('INFO', "Starting Gemini API proxy...")
     logger.info(log_msg)
@@ -719,7 +724,12 @@ async def reload_config():
     # 重新初始化 APIKeyManager
     new_api_keys = os.environ.get("GEMINI_API_KEYS", "")
     if new_api_keys != ",".join(key_manager.api_keys):
-        key_manager = APIKeyManager()
+        import re
+        keys = re.findall(r"AIzaSy[a-zA-Z0-9_-]{33}", new_api_keys)
+        get_gemini_api_keys().clear()
+        get_gemini_api_keys().extend(keys)
+        save_gemini_api_keys()
+        key_manager = APIKeyManager(get_gemini_api_keys())
         # 可以在这里添加重新检查 key 有效性的逻辑
         # 调用新的函数来处理密钥和模型的重载
         await reload_keys()

@@ -126,9 +126,12 @@ def format_log_message(level, message, extra=None):
 
 
 class APIKeyManager:
-    def __init__(self):
-        self.api_keys = re.findall(
-            r"AIzaSy[a-zA-Z0-9_-]{33}", os.environ.get('GEMINI_API_KEYS', ""))
+    def __init__(self, api_keys=None):
+        if api_keys is None:
+            self.api_keys = re.findall(
+                r"AIzaSy[a-zA-Z0-9_-]{33}", os.environ.get('GEMINI_API_KEYS', ""))
+        else:
+            self.api_keys = api_keys
         self.key_stack = [] # 初始化密钥栈
         self._reset_key_stack() # 初始化时创建随机密钥栈
         # self.api_key_blacklist = set()
