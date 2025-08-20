@@ -36,7 +36,7 @@ async def static_proxy_request(full_path: str, request: Request):
 
     if not matched_prefix:
         # 如果没有匹配的前缀，返回 404
-        return JSONResponse(content={"detail": "Not Found"}, status_code=404)
+        return JSONResponse(content={"detail": f"Invalid URL ({request.method} /{full_path})"}, status_code=404)
 
     target_base_url = static_mapping[matched_prefix]
     # 确保目标基础 URL 以斜杠结尾，并且剩余路径以斜杠开头，以便正确拼接
