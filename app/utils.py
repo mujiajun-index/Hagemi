@@ -14,6 +14,18 @@ import sys
 import base64
 from typing import Tuple, Optional
 from collections import deque
+
+
+class GeminiServiceUnavailableError(Exception):
+    """
+    自定义异常类，用于表示 Gemini 服务不可用的情况。
+    通常在 Gemini API 返回空内容时抛出。
+    """
+    def __init__(self, message: str, status_code: int = 504 ,extra:dict = {}):
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+        self.extra = extra
 # 用于存储日志的全局变量
 log_records = deque(maxlen=100) # 最多存储100条日志
 log_new_lock = Lock() # 用于保护标识新日志的锁
@@ -194,7 +206,12 @@ class APIKeyManager:
 
 
 def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") -> str:
-    if isinstance(error, requests.exceptions.HTTPError):
+    if isinstance(error, GeminiServiceUnavailableError):
+        error_message = error.message
+        log_msg = format_log_message('WARNING', f"Gemini服务不可用: {error_message}", extra=error.extra)
+        logger.warning(log_msg)
+        return error_message
+    elif isinstance(error, requests.exceptions.HTTPError):
         status_code = error.response.status_code
         if status_code == 400:
             try:

@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
 from .gemini import GeminiClient, ResponseWrapper
-from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, get_client_ip,log_records,get_log_new,set_log_new,download_image_to_base64
+from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, get_client_ip,log_records,get_log_new,set_log_new,download_image_to_base64, GeminiServiceUnavailableError
 
 
 import os
@@ -104,6 +104,10 @@ MAX_REQUESTS_PER_DAY_PER_IP = int(
 RETRY_DELAY = 1
 MAX_RETRY_DELAY = 16
 VERSION = os.environ.get('VERSION', "")
+
+#Gemini API返回空响应时的最大重试次数
+GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
+
 safety_settings = [
     {
         "category": "HARM_CATEGORY_HARASSMENT",
@@ -415,10 +419,13 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
                                                "model": chat_request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
-                        
+                        response_text_len = len(response_text)
+                        if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
+                            logger.warning("流式Gemini返回内容为空，重试")
+                            # raise GeminiServiceUnavailableError("Gemini返回内容为空")
                         duration = time.monotonic() - start_time
                         extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
-                        log_message_text_stream = f"请求成功，耗时: {duration:.2f}s, 输出token: {len(response_text)}"
+                        log_message_text_stream = f"请求成功，耗时: {duration:.2f}s, 输出token: {response_text_len}"
                         if token and token.startswith("sk-"):
                             log_message_text_stream += f" 使用密钥: {token[:10]}..."
                         log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
@@ -482,22 +489,18 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         except asyncio.CancelledError:
                             pass
                         response_content = gemini_task.result()
-                        if response_content.text == "":
-                            extra_log_empty_response = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 204}
-                            log_msg = format_log_message('INFO', "Gemini API 返回空响应", extra=extra_log_empty_response)
-                            logger.info(log_msg)
-                            raise HTTPException(status_code=403, detail=msg)
-                            # 继续循环 ontinue
+                        response_text_len = len(response_content.text)
+                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
+                        if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
+                            raise GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log)
                         response = ChatCompletionResponse(id="chatcmpl-someid", object="chat.completion", created=1234567890, model=chat_request.model,
                                                         choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}])
-                        extra_log_success = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
-                        
                         duration = time.monotonic() - start_time
-                        extra_log_success['duration_ms'] = round(duration * 1000)
-                        log_message_text_duration = f"请求成功，耗时: {duration:.2f}s, 输出token: {len(response_content.text)}"
+                        extra_log['duration_ms'] = round(duration * 1000)
+                        log_message_text_duration = f"请求成功，耗时: {duration:.2f}s, 输出token: {response_text_len}"
                         if token and token.startswith("sk-"):
                             log_message_text_duration += f" 使用密钥: {token[:10]}..."
-                        log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log_success)
+                        log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log)
                         logger.info(log_msg_duration)
                         
                         return response
@@ -507,7 +510,13 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     log_msg = format_log_message('INFO', "请求取消", extra=extra_log_request_cancel)
                     logger.info(log_msg)
                     raise
-
+        except GeminiServiceUnavailableError as e:
+            if e.status_code == 504:
+                handle_gemini_error(e, current_api_key, key_manager, client_ip)
+                if attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
+                    switch_api_key()
+                    continue
+                raise
         except HTTPException as e:
             if e.status_code == status.HTTP_408_REQUEST_TIMEOUT:
                 extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model,
