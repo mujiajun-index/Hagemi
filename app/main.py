@@ -624,6 +624,7 @@ async def get_env_vars(_: None = Depends(verify_jwt_token)):
             "EXTRA_MODELS": {"label": "自定义模型列表", "value": os.environ.get("EXTRA_MODELS", ""), "description": "自定义模型列表，多个请用逗号隔开。"},
             "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
             "BLACKLIST_IPS": {"label": "IP黑名单", "value": os.environ.get("BLACKLIST_IPS", ""), "description": "禁止访问的IP地址，多个请用逗号隔开。"},
+            "GEMINI_EMPTY_RESPONSE_RETRIES": {"label": "Gemini空响应重试次数", "value": os.environ.get("GEMINI_EMPTY_RESPONSE_RETRIES", "3"), "description": "Gemini API返回空响应时的最大重试次数。"},
             "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
@@ -716,7 +717,7 @@ async def login_for_access_token(request: Request):
     return {"access_token": access_token, "token_type": "bearer"}
 
 async def reload_config():
-    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, global_image_storage, key_manager
+    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, GEMINI_EMPTY_RESPONSE_RETRIES, global_image_storage, key_manager
 
     MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
     MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
@@ -724,6 +725,7 @@ async def reload_config():
     authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
     BLACKLIST_IPS = os.environ.get("BLACKLIST_IPS", "").split(",")
     blacklisted_ips = set(ip.strip() for ip in BLACKLIST_IPS if ip.strip())
+    GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
     # 重新初始化代理URL
     GeminiClient.BASE_URL = os.environ.get("PROXY_URL") or "https://generativelanguage.googleapis.com"
     # 重新初始化自定义模型列表
