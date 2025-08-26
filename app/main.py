@@ -411,37 +411,40 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
         try:
             if chat_request.stream:
-                async def stream_generator():
+                async def stream_generator(client, request, contents, safety_settings, system_instruction):
                     try:
-                        response_text = ""
-                        async for chunk in gemini_client.stream_chat(chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction):
-                            response_text += chunk
-                            formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
-                                               "model": chat_request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
-                            yield f"data: {json.dumps(formatted_chunk)}\n\n"
-                        response_text_len = len(response_text)
-                        if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
-                            logger.warning("流式Gemini返回内容为空，重试")
-                            # raise GeminiServiceUnavailableError("Gemini返回内容为空")
+                        for emptyAttempt in range(1,GEMINI_EMPTY_RESPONSE_RETRIES+1):
+                            response_text = ""
+                            async for chunk in client.stream_chat(request, contents, safety_settings, system_instruction):
+                                response_text += chunk
+                                formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
+                                                "model": request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
+                                yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                            response_text_len = len(response_text)
+                            if response_text_len == 0 and emptyAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
+                                switch_api_key()
+                                client = GeminiClient(current_api_key, storage=global_image_storage)
+                            else:
+                                break
                         duration = time.monotonic() - start_time
-                        extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
+                        extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
                         log_message_text_stream = f"请求成功，耗时: {duration:.2f}s, 输出token: {response_text_len}"
                         if token and token.startswith("sk-"):
                             log_message_text_stream += f" 使用密钥: {token[:10]}..."
                         log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
                         logger.info(log_msg_success_stream)
-                        
+
                         yield "data: [DONE]\n\n"
 
                     except asyncio.CancelledError:
-                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '客户端已断开连接'}
+                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': request.model, 'error_message': '客户端已断开连接'}
                         log_msg = format_log_message('INFO', "客户端连接已中断", extra=extra_log_cancel)
                         logger.info(log_msg)
                     except Exception as e:
                         error_detail = handle_gemini_error(
                             e, current_api_key, key_manager, client_ip)
                         yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
-                return StreamingResponse(stream_generator(), media_type="text/event-stream")
+                return StreamingResponse(stream_generator(gemini_client, chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction), media_type="text/event-stream")
             else:
                 async def run_gemini_completion():
                     try:
@@ -491,7 +494,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         response_content = gemini_task.result()
                         response_text_len = len(response_content.text)
                         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
-                        if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
+                        if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
                             raise GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log)
                         response = ChatCompletionResponse(id="chatcmpl-someid", object="chat.completion", created=1234567890, model=chat_request.model,
                                                         choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}])
@@ -513,7 +516,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         except GeminiServiceUnavailableError as e:
             if e.status_code == 504:
                 handle_gemini_error(e, current_api_key, key_manager, client_ip)
-                if attempt < GEMINI_EMPTY_RESPONSE_RETRIES:
+                if attempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
                     switch_api_key()
                     continue
                 raise
