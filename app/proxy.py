@@ -97,11 +97,16 @@ async def proxy_request(full_path: str, request: Request):
                         logger.info(f"客户端已断开连接, 关闭响应")
                         response.close()
                         break
-                    
+
                     if line:
-                        # 确保每个数据块都是正确的SSE格式
                         if isinstance(line, bytes):
                             line = line.decode('utf-8')
+
+                        # 跳过OpenRouter的处理状态消息，防止JSON解析错误
+                        if line.startswith(': ') or 'OPENROUTER PROCESSING' in line:
+                            continue
+
+                        # 确保每个数据块都是正确的SSE格式
                         if not line.startswith('data: '):
                             line = f"data: {line}\n\n"
                         else:
