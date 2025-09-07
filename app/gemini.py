@@ -154,6 +154,10 @@ class GeminiClient:
         # 验证model_name是否以thinkingModels中的模型开头
         if not any(model_name.startswith(m) for m in GeminiClient.thinkingModels):
             return None, None
+            
+        # 验证model_name不能包含image
+        if 'image' in model_name.lower():
+            return None, None
 
         """
         Parses the model name to extract the base model and thinking budget.
@@ -260,7 +264,8 @@ class GeminiClient:
     imageModels = [
         "gemini-2.0-flash-exp",
         "gemini-2.0-flash-exp-image-generation",
-        "gemini-2.0-flash-preview-image-generation"
+        "gemini-2.0-flash-preview-image-generation",
+        "gemini-2.5-flash-image-preview"
     ]
 
     def _save_image(self, mime_type: str, base64_data: str) -> str:
@@ -272,7 +277,7 @@ class GeminiClient:
         # 需要过滤contents 消息中的Markdown格式的图片、
         contents = self.filter_markdown_images(contents);
         # 此处根据 request.model 来判断是否是图片生成模型
-        isImageModel = request.model in self.imageModels
+        isImageModel = request.model in self.imageModels or "image" in request.model
 
         # 默认基础模型
         base_model = request.model
