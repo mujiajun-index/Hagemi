@@ -14,10 +14,12 @@ access_keys = {}
 
 ACCESS_KEYS_FILE = "app/access_keys.json"
 access_keys_lock = threading.Lock()
+save_access_keys_lock = threading.Lock()
 
 GEMINI_API_KEYS_FILE = "app/gemini_api_keys.json"
 gemini_api_keys = []
 gemini_api_keys_lock = threading.Lock()
+save_gemini_api_keys_lock = threading.Lock()
 
 def load_gemini_api_keys():
     """从 JSON 文件加载 Gemini API 密钥到全局变量"""
@@ -36,10 +38,14 @@ def load_gemini_api_keys():
 def save_gemini_api_keys():
     """
     将当前的 Gemini API 密钥保存到 JSON 文件。
-    注意：此函数不处理锁，调用方必须确保在线程安全的环境中调用。
+    此函数是线程安全的，使用非阻塞锁来避免重复写入。
     """
-    with open(GEMINI_API_KEYS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(gemini_api_keys, f, indent=4, ensure_ascii=False)
+    if save_gemini_api_keys_lock.acquire(blocking=False):
+        try:
+            with open(GEMINI_API_KEYS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(gemini_api_keys, f, indent=4, ensure_ascii=False)
+        finally:
+            save_gemini_api_keys_lock.release()
 
 def get_gemini_api_keys():
     """返回当前的 Gemini API 密钥"""
@@ -60,10 +66,14 @@ def load_access_keys():
 def save_access_keys():
     """
     将当前的访问密钥保存到 JSON 文件。
-    注意：此函数不处理锁，调用方必须确保在线程安全的环境中调用。
+    此函数是线程安全的，使用非阻塞锁来避免重复写入。
     """
-    with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(access_keys, f, indent=4, ensure_ascii=False)
+    if save_access_keys_lock.acquire(blocking=False):
+        try:
+            with open(ACCESS_KEYS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(access_keys, f, indent=4, ensure_ascii=False)
+        finally:
+            save_access_keys_lock.release()
 
 def get_access_keys():
     """返回当前的访问密钥"""
