@@ -531,16 +531,18 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                 raise  
         except Exception as e:
             handle_gemini_error(e, current_api_key, key_manager, client_ip)
-            if attempt < retry_attempts:
-                switch_api_key()
-                continue
+            break
+            # 非流式,暂时关闭重试
+            # if attempt < retry_attempts:
+            #     switch_api_key()
+            #     continue
 
-    msg = "所有API密钥均失败,请稍后重试"
-    extra_log_all_fail = {'ip': client_ip, 'key': "ALL", 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': msg}
-    log_msg = format_log_message('ERROR', msg, extra=extra_log_all_fail)
-    logger.error(log_msg)
+    # msg = "所有API密钥均失败,请稍后重试"
+    # extra_log_all_fail = {'ip': client_ip, 'key': "ALL", 'request_type': request_type, 'model': chat_request.model, 'status_code': 500, 'error_message': msg}
+    # log_msg = format_log_message('ERROR', msg, extra=extra_log_all_fail)
+    # logger.error(log_msg)
     raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="API密钥请求失败,请稍后重试")
 
 @app.get("/v1/models", response_model=ModelList)
 def list_models(request: Request, _: None = Depends(verify_password)):
