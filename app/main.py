@@ -103,7 +103,7 @@ MAX_REQUESTS_PER_DAY_PER_IP = int(
 # MAX_RETRIES = int(os.environ.get('MaxRetries', '3').strip() or '3')
 RETRY_DELAY = 1
 MAX_RETRY_DELAY = 16
-VERSION = os.environ.get('VERSION', "")
+VERSION = os.environ.get('VERSION', "1.0.0")
 
 #Gemini API返回空响应时的最大重试次数
 GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
@@ -215,6 +215,8 @@ async def reload_keys():
 
 @app.on_event("startup")
 async def startup_event():
+    log_msg = format_log_message('INFO', f"成功启动 版本：v{VERSION}")
+    logger.info(log_msg)
     load_api_mappings()
     load_access_keys()
     load_gemini_api_keys()
