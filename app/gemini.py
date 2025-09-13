@@ -273,7 +273,7 @@ class GeminiClient:
         # 保存图片并返回URL
         return self.storage.save_image(mime_type, base64_data)
 
-    async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):
+    async def stream_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction, callback):
         # 需要过滤contents 消息中的Markdown格式的图片、
         contents = self.filter_markdown_images(contents);
         # 此处根据 request.model 来判断是否是图片生成模型
@@ -312,19 +312,45 @@ class GeminiClient:
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
                 buffer = b""
+                full_response_data = {}
                 try:
                     async for line in response.aiter_lines():
                         if not line.strip():
                             continue
                         if line.startswith("data: "):
-                            line = line[len("data: "):] 
+                            line = line[len("data: "):]
                         buffer += line.encode('utf-8')
                         try:
-                            data = json.loads(buffer.decode('utf-8'))
-                            # logger.debug(f"收到数据: {json.dumps(data, ensure_ascii=False)}")
+                            json_data = json.loads(buffer.decode('utf-8'))
                             buffer = b""
-                            if 'candidates' in data and data['candidates']:
-                                candidate = data['candidates'][0]
+                            
+                            # 合并数据块以构建完整的响应
+                            if 'candidates' in json_data:
+                                if 'candidates' not in full_response_data:
+                                    full_response_data['candidates'] = []
+                                
+                                for candidate in json_data['candidates']:
+                                    # 查找是否已存在相同索引的候选者
+                                    existing_candidate = next((c for c in full_response_data['candidates'] if c.get('index') == candidate.get('index')), None)
+                                    if existing_candidate:
+                                        # 合并 parts
+                                        if 'content' in candidate and 'parts' in candidate['content']:
+                                            if 'content' not in existing_candidate:
+                                                existing_candidate['content'] = {'parts': []}
+                                            existing_candidate['content']['parts'].extend(candidate['content']['parts'])
+                                        # 更新 finishReason 和 safetyRatings
+                                        if 'finishReason' in candidate:
+                                            existing_candidate['finishReason'] = candidate['finishReason']
+                                        if 'safetyRatings' in candidate:
+                                            existing_candidate['safetyRatings'] = candidate['safetyRatings']
+                                    else:
+                                        full_response_data['candidates'].append(candidate)
+
+                            if 'usageMetadata' in json_data:
+                                full_response_data['usageMetadata'] = json_data['usageMetadata']
+
+                            if 'candidates' in json_data and json_data['candidates']:
+                                candidate = json_data['candidates'][0]
                                 if 'content' in candidate:
                                     content = candidate['content']
                                     if 'parts' in content and content['parts']:
@@ -338,43 +364,34 @@ class GeminiClient:
                                                 if 'mimeType' in inline_data and 'data' in inline_data:
                                                     mime_type = inline_data['mimeType']
                                                     base64_data = inline_data['data']
-                                                    # 记录上传开始时间
                                                     upload_start_time = datetime.datetime.now()
                                                     logger.info(f"生成的图片数据: {mime_type}--{len(base64_data)}")
-                                                    # 保存图片并获取HTTP URL
                                                     image_url = self._save_image(mime_type, base64_data)
-                                                    # 计算上传耗时
                                                     upload_end_time = datetime.datetime.now()
                                                     upload_duration = (upload_end_time - upload_start_time).total_seconds()
                                                     logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
                                                     logger.info(f"图片的访问地址: {image_url}")
                                                     text += f"![]({image_url})"
                                         if text:
-                                            yield text
+                                            await callback(text)
                                         
                                 if candidate.get("finishReason") and candidate.get("finishReason") != "STOP":
-                                    # logger.warning(f"模型的响应因违反内容政策而被标记: {candidate.get('finishReason')}")
                                     raise ValueError(f"模型的响应被截断: {candidate.get('finishReason')}")
                                 
                                 if 'safetyRatings' in candidate:
                                     for rating in candidate['safetyRatings']:
                                         if rating['probability'] == 'HIGH':
-                                            # logger.warning(f"模型的响应因高概率被标记为 {rating['category']}")
                                             raise ValueError(f"模型的响应被截断: {rating['category']}")
-                            elif 'error' in data and data['error']:
-                                raise ValueError(f"模型的响应被截断: {data['error']}")
+                            elif 'error' in json_data and json_data['error']:
+                                raise ValueError(f"模型的响应被截断: {json_data['error']}")
                         except json.JSONDecodeError:
-                            # logger.debug(f"JSON解析错误, 当前缓冲区内容: {buffer}")
                             continue
                         except Exception as e:
-                            # logger.error(f"流式处理期间发生错误: {e}")
                             raise e
                 except Exception as e:
-                    # logger.error(f"流式处理错误: {e}")
                     raise e
-                # finally:
-                    # yield "![](https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/samantha/logo-icon-white-bg.png)"
-                    # logger.info("请求结束")
+                
+                return ResponseWrapper(full_response_data)
 
 
     def complete_chat(self, request: ChatCompletionRequest, contents, safety_settings, system_instruction):

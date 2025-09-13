@@ -395,15 +395,9 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             logger.warning(log_msg_no_key)
             break  # 如果没有可用密钥，跳出循环
         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': '200', 'error_message': ''}
-        request_token_count = 0
-        for message in chat_request.messages:
-            if isinstance(message.content, str):
-                request_token_count += len(message.content)
-            elif isinstance(message.content, list):
-                request_token_count += sum(len(json.dumps(p)) for p in message.content)
-        log_message_text = f"第 [{attempt}/{retry_attempts}] 次尝试请求中, 输入token: {request_token_count}"
+        log_message_text = f"正在请求中"
         if token and token.startswith("sk-"):
-            log_message_text += f" 使用密钥: {token[:10]}..."
+            log_message_text += f", 密钥: {token[:10]}..."
         log_msg = format_log_message('INFO', log_message_text, extra=extra_log)
         logger.info(log_msg)
         start_time = time.monotonic()
@@ -411,40 +405,103 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
         try:
             if chat_request.stream:
-                async def stream_generator(client, request, contents, safety_settings, system_instruction):
+                async def stream_generator():
+                    queue = asyncio.Queue()
+                    
+                    async def callback(chunk):
+                        await queue.put(chunk)
+
+                    async def stream_task():
+                        nonlocal gemini_client
+                        try:
+                            for emptyAttempt in range(1,GEMINI_EMPTY_RESPONSE_RETRIES+1):
+                                response_wrapper = await gemini_client.stream_chat(
+                                    chat_request, contents,
+                                    safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings,
+                                    system_instruction,
+                                    callback
+                                )
+                                if not response_wrapper.text and emptyAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
+                                    switch_api_key()
+                                    gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                else:
+                                    await queue.put(response_wrapper)
+                                    break
+                        except Exception as e:
+                            await queue.put(e)
+                        finally:
+                            await queue.put(None)
+
+                    task = asyncio.create_task(stream_task())
+                    
+                    response_text = ""
                     try:
-                        for emptyAttempt in range(1,GEMINI_EMPTY_RESPONSE_RETRIES+1):
-                            response_text = ""
-                            async for chunk in client.stream_chat(request, contents, safety_settings, system_instruction):
-                                response_text += chunk
-                                formatted_chunk = {"id": "chatcmpl-someid", "object": "chat.completion.chunk", "created": 1234567,
-                                                "model": request.model, "choices": [{"delta": {"role": "assistant", "content": chunk}, "index": 0, "finish_reason": None}]}
-                                yield f"data: {json.dumps(formatted_chunk)}\n\n"
-                            response_text_len = len(response_text)
-                            if response_text_len == 0 and emptyAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
-                                switch_api_key()
-                                client = GeminiClient(current_api_key, storage=global_image_storage)
-                            else:
+                        while True:
+                            item = await queue.get()
+                            if item is None:
                                 break
+                            if isinstance(item, Exception):
+                                raise item
+                            if isinstance(item, ResponseWrapper):
+                                response_wrapper = item
+                                break
+                            
+                            response_text += item
+                            formatted_chunk = {
+                                "id": "chatcmpl-someid",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": chat_request.model,
+                                "choices": [{"delta": {"role": "assistant", "content": item}, "index": 0, "finish_reason": None}]
+                            }
+                            yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                        
                         duration = time.monotonic() - start_time
-                        extra_log_success_stream = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': request.model, 'status_code': 200, 'duration_ms': round(duration * 1000)}
-                        log_message_text_stream = f"请求成功，耗时: {duration:.2f}s, 输出token: {response_text_len}"
+                        prompt_tokens = response_wrapper.prompt_token_count or 0
+                        completion_tokens = response_wrapper.candidates_token_count or 0
+                        total_tokens = response_wrapper.total_token_count or 0
+
+                        extra_log_success_stream = {
+                            'ip': client_ip, 'key': current_api_key[:8], 'request_type': 'stream',
+                            'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000),
+                            'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': total_tokens
+                        }
+
+                        skStr = "";
                         if token and token.startswith("sk-"):
-                            log_message_text_stream += f" 使用密钥: {token[:10]}..."
+                            skStr = f" 密钥: {token[:10]}..."
+
+                        log_message_text_stream = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】, 【总Token: {total_tokens}】"
+                        
                         log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
                         logger.info(log_msg_success_stream)
 
+                        final_chunk = {
+                            "id": "chatcmpl-someid-final",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": chat_request.model,
+                            "choices": [{"delta": {}, "index": 0, "finish_reason": "stop"}],
+                            "usage": {
+                                "prompt_tokens": prompt_tokens,
+                                "completion_tokens": completion_tokens,
+                                "total_tokens": total_tokens
+                            }
+                        }
+                        yield f"data: {json.dumps(final_chunk)}\n\n"
                         yield "data: [DONE]\n\n"
 
                     except asyncio.CancelledError:
-                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': request.model, 'error_message': '客户端已断开连接'}
+                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': 'stream', 'model': chat_request.model, 'error_message': '客户端已断开连接'}
                         log_msg = format_log_message('INFO', "客户端连接已中断", extra=extra_log_cancel)
                         logger.info(log_msg)
                     except Exception as e:
-                        error_detail = handle_gemini_error(
-                            e, current_api_key, key_manager, client_ip)
+                        error_detail = handle_gemini_error(e, current_api_key, key_manager, client_ip)
                         yield f"data: {json.dumps({'error': {'message': error_detail, 'type': 'gemini_error'}})}\n\n"
-                return StreamingResponse(stream_generator(gemini_client, chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction), media_type="text/event-stream")
+                    finally:
+                        task.cancel()
+
+                return StreamingResponse(stream_generator(), media_type="text/event-stream")
             else:
                 async def run_gemini_completion():
                     try:
@@ -496,13 +553,30 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
                         if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
                             raise GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log)
-                        response = ChatCompletionResponse(id="chatcmpl-someid", object="chat.completion", created=1234567890, model=chat_request.model,
-                                                        choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}])
+                        
+                        prompt_tokens = response_content.prompt_token_count or 0
+                        completion_tokens = response_content.candidates_token_count or 0
+                        total_tokens = response_content.total_token_count or 0
+
+                        response = ChatCompletionResponse(
+                            id="chatcmpl-someid",
+                            object="chat.completion",
+                            created=int(time.time()),
+                            model=chat_request.model,
+                            choices=[{"index": 0, "message": {"role": "assistant", "content": response_content.text}, "finish_reason": "stop"}],
+                            usage={"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": total_tokens}
+                        )
                         duration = time.monotonic() - start_time
                         extra_log['duration_ms'] = round(duration * 1000)
-                        log_message_text_duration = f"请求成功，耗时: {duration:.2f}s, 输出token: {response_text_len}"
+                        extra_log['prompt_tokens'] = prompt_tokens
+                        extra_log['completion_tokens'] = completion_tokens
+                        extra_log['total_tokens'] = total_tokens
+
+                        skStr = "";
                         if token and token.startswith("sk-"):
-                            log_message_text_duration += f" 使用密钥: {token[:10]}..."
+                            skStr = f" 密钥: {token[:10]}..."
+                        log_message_text_duration = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】, 【总Token: {total_tokens}】"
+
                         log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log)
                         logger.info(log_msg_duration)
                         
