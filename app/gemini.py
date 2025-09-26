@@ -146,7 +146,10 @@ class GeminiClient:
     thinkingModels = [
         "gemini-2.5-pro",
         "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
+        "gemini-2.5-flash-lite",
+        "gemini-pro-latest",
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest"
     ]
     
     @staticmethod
@@ -187,7 +190,7 @@ class GeminiClient:
                     thinking_budget = 128; #gemini-2.5-pro 最少设置 128 Token
                 else:
                     thinking_budget = 0  # Thinking off
-
+        # logger.info(f"_parse_model_name_and_budget model_name: {model_name}, base_model: {base_model}, thinking_budget: {thinking_budget}")
         return base_model, thinking_budget
 
     # 过滤Markdown格式的图片

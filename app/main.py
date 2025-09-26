@@ -375,7 +375,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
         http_request, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP)
     # 解析是否是自定义思考模型,不在所有模型列表中,但使其也可以访问
     thinking_model, thinking_budget = GeminiClient._parse_model_name_and_budget(chat_request.model)
-    if chat_request.model not in GeminiClient.AVAILABLE_MODELS and thinking_model not in GeminiClient.thinkingModels:
+    if chat_request.model not in GeminiClient.AVAILABLE_MODELS and not any(thinking_model.startswith(model) for model in GeminiClient.thinkingModels):
         error_msg = "无效的模型"
         extra_log = {'ip': client_ip, 'request_type': request_type, 'model': chat_request.model, 'status_code': 400, 'error_message': error_msg}
         log_msg = format_log_message('ERROR', error_msg, extra=extra_log)
