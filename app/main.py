@@ -473,7 +473,11 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         if token and token.startswith("sk-"):
                             skStr = f" 密钥: {token[:10]}..."
 
-                        log_message_text_stream = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】, 【总Token: {total_tokens}】"
+                        thinking_tokens = total_tokens - (prompt_tokens + completion_tokens)
+                        log_message_text_stream = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】"
+                        if thinking_tokens > 0:
+                            log_message_text_stream += f", 【思考Token: {thinking_tokens}】"
+                        log_message_text_stream += f", 【总Token: {total_tokens}】"
                         
                         log_msg_success_stream = format_log_message('INFO', log_message_text_stream, extra=extra_log_success_stream)
                         logger.info(log_msg_success_stream)
@@ -577,7 +581,11 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         skStr = "";
                         if token and token.startswith("sk-"):
                             skStr = f" 密钥: {token[:10]}..."
-                        log_message_text_duration = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】, 【总Token: {total_tokens}】"
+                        thinking_tokens = total_tokens - (prompt_tokens + completion_tokens)
+                        log_message_text_duration = f"已请求成功,{skStr} 【耗时: {duration:.2f}s】, 【输入Token: {prompt_tokens}】, 【输出Token: {completion_tokens}】"
+                        if thinking_tokens > 0:
+                            log_message_text_duration += f", 【思考Token: {thinking_tokens}】"
+                        log_message_text_duration += f", 【总Token: {total_tokens}】"
 
                         log_msg_duration = format_log_message('INFO', log_message_text_duration, extra=extra_log)
                         logger.info(log_msg_duration)

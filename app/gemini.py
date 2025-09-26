@@ -186,7 +186,7 @@ class GeminiClient:
                 else:
                     thinking_budget = -1  # Default to dynamic if no value is specified
             elif thinking_mode == "nothinking":
-                if base_model == "gemini-2.5-pro":
+                if "-pro" in base_model:
                     thinking_budget = 128; #gemini-2.5-pro 最少设置 128 Token
                 else:
                     thinking_budget = 0  # Thinking off
