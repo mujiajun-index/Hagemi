@@ -119,12 +119,15 @@ class GeminiClient:
     # 扩展模型列表，支持设置思考token的模型
     EXTENDED_MODELS = [
         "---------- EXTENDED_MODELS ----------",
-        "gemini-2.5-pro-nothinking",
-        "gemini-2.5-flash-nothinking",
-        "gemini-2.5-flash-lite-nothinking",
-        "gemini-2.5-pro-thinking-32768",
-        "gemini-2.5-flash-thinking-24576",
-        "gemini-2.5-flash-lite-thinking-24576"
+        "gemini-pro-latest-nothinking",
+        "gemini-flash-latest-nothinking",
+        "gemini-flash-lite-latest-nothinking",
+        "gemini-pro-latest-thinking-16384",
+        "gemini-flash-latest-thinking-12288",
+        "gemini-flash-lite-latest-thinking-12288",
+        "gemini-pro-latest-maxthinking",
+        "gemini-flash-latest-maxthinking",
+        "gemini-flash-lite-latest-maxthinking",
     ]
 
     # 自定义模型列表，支持设置思考token的模型
@@ -173,7 +176,7 @@ class GeminiClient:
         thinking_budget = -1
 
         # Regex to find thinking config
-        match = re.match(r"^(.*?)-(thinking|nothinking)(?:-(\d+))?$", model_name)
+        match = re.match(r"^(.*?)-(thinking|nothinking|maxthinking)(?:-(\d+))?$", model_name)
 
         if match:
             base_model = match.group(1)
@@ -190,6 +193,11 @@ class GeminiClient:
                     thinking_budget = 128; #gemini-2.5-pro 最少设置 128 Token
                 else:
                     thinking_budget = 0  # Thinking off
+            elif thinking_mode == "maxthinking":
+                if "-pro" in base_model:
+                    thinking_budget = 32768  # gemini-2.5-pro 最大思考token
+                else:
+                    thinking_budget = 24576  # gemini-2.5-flash 最大思考token
         # logger.info(f"_parse_model_name_and_budget model_name: {model_name}, base_model: {base_model}, thinking_budget: {thinking_budget}")
         return base_model, thinking_budget
 
