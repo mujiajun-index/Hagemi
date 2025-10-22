@@ -437,6 +437,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     task = asyncio.create_task(stream_task())
                     
                     response_text = ""
+                    response_wrapper = None
                     try:
                         while True:
                             item = await queue.get()
@@ -459,9 +460,15 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
                         
                         duration = time.monotonic() - start_time
-                        prompt_tokens = response_wrapper.prompt_token_count or 0
-                        completion_tokens = response_wrapper.candidates_token_count or 0
-                        total_tokens = response_wrapper.total_token_count or 0
+                        
+                        if response_wrapper is not None:
+                            prompt_tokens = response_wrapper.prompt_token_count or 0
+                            completion_tokens = response_wrapper.candidates_token_count or 0
+                            total_tokens = response_wrapper.total_token_count or 0
+                        else:
+                            prompt_tokens = 0
+                            completion_tokens = 0
+                            total_tokens = 0
 
                         extra_log_success_stream = {
                             'ip': client_ip, 'key': current_api_key[:8], 'request_type': 'stream',
