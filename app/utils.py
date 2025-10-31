@@ -27,7 +27,7 @@ class GeminiServiceUnavailableError(Exception):
         self.message = message
         self.extra = extra
 # 用于存储日志的全局变量
-log_records = deque(maxlen=100) # 最多存储100条日志
+log_records = deque(maxlen=1000) # 最多存储1000条日志
 log_new_lock = Lock() # 用于保护标识新日志的锁
 log_new = False # 标识是否有新日志
 
