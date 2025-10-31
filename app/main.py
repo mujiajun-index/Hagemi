@@ -29,7 +29,7 @@ load_dotenv()
 # JWT 配置
 SECRET_KEY = os.environ.get("SECRET_KEY", "a_very_secret_key") # 强烈建议在.env中设置一个安全的密钥
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 logging.getLogger("uvicorn").disabled = True
 logging.getLogger("uvicorn.access").disabled = True
 
