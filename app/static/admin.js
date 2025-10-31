@@ -152,7 +152,15 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
     });
 }
 
-function showTextareaPrompt(title, text, defaultValue = '') {
+function showTextareaPrompt(options) {
+    const {
+        title,
+        text,
+        defaultValue = '',
+        confirmText = '确认',
+        cancelText = '取消'
+    } = options;
+
     return new Promise(resolve => {
         resolvePromise = resolve;
         modalTitle.textContent = title;
@@ -166,6 +174,9 @@ function showTextareaPrompt(title, text, defaultValue = '') {
         
         modalTextarea.value = defaultValue;
         modalTextarea.focus();
+
+        modalConfirmBtn.textContent = confirmText;
+        modalCancelBtn.textContent = cancelText;
 
         modalConfirmBtn.onclick = () => {
             if (resolvePromise) resolve(modalTextarea.value);
@@ -549,35 +560,84 @@ async function showAddGeminiKeyModal() {
 
 // 显示批量添加Gemini密钥的模态框
 async function showBulkAddGeminiKeysModal() {
-    const keysText = await showTextareaPrompt("批量添加密钥", "批量添加多个密钥，每行一个");
+    const switchContainer = document.getElementById('bulk-delete-switch-container');
+    const switchInput = document.getElementById('bulk-delete-mode-switch');
+    
+    switchContainer.style.display = 'flex';
+
+    // Listener to update modal text based on the switch
+    const updateConfirmButtonText = () => {
+        modalConfirmBtn.textContent = switchInput.checked ? '确认删除' : '确认添加';
+    };
+    switchInput.addEventListener('change', updateConfirmButtonText);
+    
+    // Set initial button text
+    updateConfirmButtonText();
+
+    const keysText = await showTextareaPrompt({
+        title: "批量操作密钥",
+        text: "",
+    });
+
+    // Cleanup
+    switchContainer.style.display = 'none';
+    switchInput.removeEventListener('change', updateConfirmButtonText);
+    // Reset button text to default
+    modalConfirmBtn.textContent = '确认';
+
     if (keysText) {
-        const newKeys = keysText.split('\n')
+        const keys = keysText.split('\n')
             .map(k => k.trim())
-            .filter(k => k); // 过滤空行
-        
-        if (newKeys.length === 0) {
+            .filter(k => k); // Filter out empty lines
+
+        if (keys.length === 0) {
             alert('没有输入有效的密钥。');
             return;
         }
-        
-        // 检查重复密钥
-        const duplicateKeys = newKeys.filter(k => currentGeminiKeys.includes(k));
-        if (duplicateKeys.length > 0) {
-            const confirmResult = await showConfirm(
-                "发现重复密钥",
-                `以下密钥已存在：\n${duplicateKeys.join('\n')}\n\n是否跳过重复的密钥并添加其余密钥？`
-            );
-            if (!confirmResult) return;
+
+        const isDeleteMode = switchInput.checked;
+
+        if (isDeleteMode) {
+            // Bulk Delete Logic
+            let deletedCount = 0;
+            let notFoundCount = 0;
+            
+            keys.forEach(keyToDelete => {
+                const index = currentGeminiKeys.indexOf(keyToDelete);
+                if (index > -1) {
+                    currentGeminiKeys.splice(index, 1);
+                    deletedCount++;
+                } else {
+                    notFoundCount++;
+                }
+            });
+
+            if (deletedCount > 0) {
+                checkGeminiKeysModified();
+                renderGeminiKeys();
+                alert(`成功删除 ${deletedCount} 个密钥。${notFoundCount > 0 ? `有 ${notFoundCount} 个密钥未找到。` : ''}`);
+            } else {
+                alert('没有找到任何要删除的密钥。');
+            }
+        } else {
+            // Bulk Add Logic (existing logic)
+            const duplicateKeys = keys.filter(k => currentGeminiKeys.includes(k));
+            if (duplicateKeys.length > 0) {
+                const confirmResult = await showConfirm(
+                    "发现重复密钥",
+                    `以下密钥已存在：\n${duplicateKeys.join('\n')}\n\n是否跳过重复的密钥并添加其余密钥？`
+                );
+                if (!confirmResult) return;
+            }
+
+            const uniqueNewKeys = keys.filter(k => !currentGeminiKeys.includes(k));
+            currentGeminiKeys.push(...uniqueNewKeys);
+
+            checkGeminiKeysModified();
+            renderGeminiKeys();
+
+            alert(`成功添加 ${uniqueNewKeys.length} 个新密钥${duplicateKeys.length > 0 ? `，跳过 ${duplicateKeys.length} 个重复密钥` : ''}。`);
         }
-        
-        // 添加不重复的密钥
-        const uniqueNewKeys = newKeys.filter(k => !currentGeminiKeys.includes(k));
-        currentGeminiKeys.push(...uniqueNewKeys);
-        
-        checkGeminiKeysModified();
-        renderGeminiKeys();
-        
-        alert(`成功添加 ${uniqueNewKeys.length} 个新密钥${duplicateKeys.length > 0 ? `，跳过 ${duplicateKeys.length} 个重复密钥` : ''}。`);
     }
 }
 

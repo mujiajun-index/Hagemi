@@ -28,7 +28,7 @@
                      </div>
                      <div class="keys-actions">
                          <button type="button" class="add-btn" onclick="showAddGeminiKeyModal()">+ 添加密钥</button>
-                         <button type="button" class="add-btn bulk-action-btn" onclick="showBulkAddGeminiKeysModal()">+ 批量添加</button>
+                         <button type="button" class="add-btn bulk-action-btn" onclick="showBulkAddGeminiKeysModal()">+ 批量操作</button>
                          <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性</button>
                          <button type="button" class="save-btn" id="save-gemini-keys-btn" onclick="saveGeminiKeysToServer()" style="display: none;">💾 保存更改</button>
                      </div>
@@ -190,6 +190,13 @@
                    <label for="modal-textarea" style="display:block; font-weight: bold;">请输入密钥（每行一个）:</label>
                    <textarea id="modal-textarea" class="modal-textarea" rows="8" placeholder="密钥1&#10;密钥2&#10;密钥3"></textarea>
                    <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">支持回车分割，每行一个密钥</p>
+                   <div class="modal-switch-container" id="bulk-delete-switch-container" style="display: none;">
+                       <span>批量删除模式</span>
+                       <label class="switch">
+                           <input type="checkbox" id="bulk-delete-mode-switch">
+                           <span class="slider"></span>
+                       </label>
+                   </div>
                </div>
                <div id="modal-mapping-container" style="display: none;">
                    <label for="modal-input-prefix" style="display:block; font-weight: bold;">请求前缀</label>
