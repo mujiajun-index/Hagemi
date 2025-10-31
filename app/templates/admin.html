@@ -19,6 +19,21 @@
                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
                      <p><strong>功能描述:</strong> 在此管理您的 Gemini API 密钥。系统将使用这些密钥与 Gemini API 进行交互。</p>
                  </div>
+                 
+                 <!-- 操作按钮区域 -->
+                 <div class="keys-controls">
+                     <div class="keys-info">
+                         <span class="keys-count">总数量: <span id="gemini-keys-count">0</span></span>
+                         <span id="gemini-keys-status" class="keys-status"></span>
+                     </div>
+                     <div class="keys-actions">
+                         <button type="button" class="add-btn" onclick="showAddGeminiKeyModal()">+ 添加密钥</button>
+                         <button type="button" class="add-btn bulk-action-btn" onclick="showBulkAddGeminiKeysModal()">+ 批量添加</button>
+                         <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性</button>
+                         <button type="button" class="save-btn" id="save-gemini-keys-btn" onclick="saveGeminiKeysToServer()" style="display: none;">💾 保存更改</button>
+                     </div>
+                 </div>
+                 
                  <table id="gemini-keys-table">
                      <thead>
                          <tr>
@@ -31,10 +46,6 @@
                          <!-- Gemini Keys will be loaded here -->
                      </tbody>
                  </table>
-                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <button type="button" class="add-btn" onclick="addGeminiKey()">+ 添加新密钥</button>
-                    <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性</button>
-                 </div>
              </div>
           </div>
 
@@ -47,6 +58,18 @@
                   <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
                       <p><strong>功能描述:</strong> 在此管理您的访问密钥。这些密钥可用于访问 v1 接口，并可设置次数限制和过期时间。</p>
                   </div>
+                  
+                  <!-- 操作按钮区域 -->
+                  <div class="keys-controls">
+                      <div class="keys-info">
+                          <span class="keys-count">总数量: <span id="access-keys-count">0</span></span>
+                          <span id="access-keys-status" class="keys-status"></span>
+                      </div>
+                      <div class="keys-actions">
+                          <button type="button" class="add-btn" onclick="addAccessKey()">+ 添加新访问密钥</button>
+                      </div>
+                  </div>
+                  
                   <table id="access-keys-table">
                       <thead>
                           <tr>
@@ -64,7 +87,6 @@
                           <!-- Access Keys will be loaded here -->
                       </tbody>
                   </table>
-                  <button type="button" class="add-btn" onclick="addAccessKey()">+ 添加新访问密钥</button>
               </div>
           </div>
 
@@ -163,6 +185,11 @@
                <p id="modal-text" style="margin-top: 0;"></p>
                <div id="modal-single-input-container">
                    <input type="text" id="modal-input" class="modal-input">
+               </div>
+               <div id="modal-textarea-container" style="display: none;">
+                   <label for="modal-textarea" style="display:block; font-weight: bold;">请输入密钥（每行一个）:</label>
+                   <textarea id="modal-textarea" class="modal-textarea" rows="8" placeholder="密钥1&#10;密钥2&#10;密钥3"></textarea>
+                   <p style="font-size: 0.85em; color: #666; margin-top: 0.5em;">支持回车分割，每行一个密钥</p>
                </div>
                <div id="modal-mapping-container" style="display: none;">
                    <label for="modal-input-prefix" style="display:block; font-weight: bold;">请求前缀</label>

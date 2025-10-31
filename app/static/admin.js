@@ -67,9 +67,11 @@ const modalCancelBtn = document.getElementById('modal-cancel-btn');
 const modalCloseBtn = document.querySelector('.modal-close');
 // Input containers
 const modalSingleInputContainer = document.getElementById('modal-single-input-container');
+const modalTextareaContainer = document.getElementById('modal-textarea-container');
 const modalMappingContainer = document.getElementById('modal-mapping-container');
 // Inputs
 const modalInput = document.getElementById('modal-input');
+const modalTextarea = document.getElementById('modal-textarea');
 const modalInputPrefix = document.getElementById('modal-input-prefix');
 const modalInputTarget = document.getElementById('modal-input-target');
 
@@ -106,6 +108,7 @@ function showConfirm(title, text) {
         
         modalText.style.display = 'block';
         modalSingleInputContainer.style.display = 'none';
+        modalTextareaContainer.style.display = 'none';
         modalMappingContainer.style.display = 'none';
         document.getElementById('modal-access-key-container').style.display = 'none';
 
@@ -129,6 +132,7 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
         modalText.style.display = text ? 'block' : 'none';
 
         modalSingleInputContainer.style.display = 'block';
+        modalTextareaContainer.style.display = 'none';
         modalMappingContainer.style.display = 'none';
         document.getElementById('modal-access-key-container').style.display = 'none';
         
@@ -138,6 +142,33 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
 
         modalConfirmBtn.onclick = () => {
             if (resolvePromise) resolve(modalInput.value);
+            hideModal();
+        };
+        modalCancelBtn.onclick = () => {
+            if (resolvePromise) resolve(null);
+            hideModal();
+        };
+        showModal();
+    });
+}
+
+function showTextareaPrompt(title, text, defaultValue = '') {
+    return new Promise(resolve => {
+        resolvePromise = resolve;
+        modalTitle.textContent = title;
+        modalText.textContent = text;
+        modalText.style.display = text ? 'block' : 'none';
+
+        modalSingleInputContainer.style.display = 'none';
+        modalTextareaContainer.style.display = 'block';
+        modalMappingContainer.style.display = 'none';
+        document.getElementById('modal-access-key-container').style.display = 'none';
+        
+        modalTextarea.value = defaultValue;
+        modalTextarea.focus();
+
+        modalConfirmBtn.onclick = () => {
+            if (resolvePromise) resolve(modalTextarea.value);
             hideModal();
         };
         modalCancelBtn.onclick = () => {
@@ -319,8 +350,13 @@ async function saveGroupSettings(groupContentElement) {
 }
 
 let currentGeminiKeys = [];
+let originalGeminiKeys = []; // 存储原始数据，用于比较是否有修改
 let allAccessKeys = {};
+let originalAccessKeys = {}; // 存储原始数据，用于比较是否有修改
 let accessKeyFilterState = 0; // 0: 全部, 1: 有效, 2: 无效
+
+// 数据修改状态
+let geminiKeysModified = false;
 
 // The function now accepts the environment data as an argument
 function loadGeminiKeys(data) {
@@ -328,7 +364,10 @@ function loadGeminiKeys(data) {
         const categoryName = 'API与访问控制';
         const keysString = data[categoryName] && data[categoryName].GEMINI_API_KEYS ? data[categoryName].GEMINI_API_KEYS.value : '';
         currentGeminiKeys = keysString ? keysString.split(',').map(k => k.trim()).filter(k => k) : [];
+        originalGeminiKeys = [...currentGeminiKeys]; // 创建副本用于比较
+        geminiKeysModified = false;
         renderGeminiKeys();
+        updateGeminiKeysStatus();
     } catch (error) {
         console.error('解析Gemini API密钥失败:', error);
     }
@@ -455,14 +494,47 @@ function renderGeminiKeys() {
         tbody.innerHTML += row;
     });
 
-    // 同时同步更新“API与访问控制”中的输入框
+    // 更新总数量显示
+    const keysCountElement = document.getElementById('gemini-keys-count');
+    if (keysCountElement) {
+        keysCountElement.textContent = currentGeminiKeys.length;
+    }
+
+    // 同时同步更新"API与访问控制"中的输入框
     const geminiKeysInput = document.getElementById('GEMINI_API_KEYS');
     if (geminiKeysInput) {
         geminiKeysInput.value = currentGeminiKeys.join(',');
     }
 }
 
-async function addGeminiKey() {
+// 更新Gemini密钥状态显示
+function updateGeminiKeysStatus() {
+    const statusElement = document.getElementById('gemini-keys-status');
+    const saveButton = document.getElementById('save-gemini-keys-btn');
+    
+    if (statusElement && saveButton) {
+        if (geminiKeysModified) {
+            statusElement.textContent = '已修改';
+            statusElement.className = 'keys-status modified';
+            saveButton.style.display = 'inline-block';
+        } else {
+            statusElement.textContent = '';
+            statusElement.className = 'keys-status';
+            saveButton.style.display = 'none';
+        }
+    }
+}
+
+// 检查Gemini密钥是否有修改
+function checkGeminiKeysModified() {
+    const currentKeysSorted = [...currentGeminiKeys].sort();
+    const originalKeysSorted = [...originalGeminiKeys].sort();
+    geminiKeysModified = JSON.stringify(currentKeysSorted) !== JSON.stringify(originalKeysSorted);
+    updateGeminiKeysStatus();
+}
+
+// 显示添加单个Gemini密钥的模态框
+async function showAddGeminiKeyModal() {
     const newKey = await showPrompt("添加新密钥", "请输入新的 Gemini API 密钥:");
     if (newKey && newKey.trim()) {
         if (currentGeminiKeys.includes(newKey.trim())) {
@@ -470,8 +542,94 @@ async function addGeminiKey() {
             return;
         }
         currentGeminiKeys.push(newKey.trim());
-        await saveGeminiKeys();
+        checkGeminiKeysModified();
+        renderGeminiKeys();
     }
+}
+
+// 显示批量添加Gemini密钥的模态框
+async function showBulkAddGeminiKeysModal() {
+    const keysText = await showTextareaPrompt("批量添加密钥", "批量添加多个密钥，每行一个");
+    if (keysText) {
+        const newKeys = keysText.split('\n')
+            .map(k => k.trim())
+            .filter(k => k); // 过滤空行
+        
+        if (newKeys.length === 0) {
+            alert('没有输入有效的密钥。');
+            return;
+        }
+        
+        // 检查重复密钥
+        const duplicateKeys = newKeys.filter(k => currentGeminiKeys.includes(k));
+        if (duplicateKeys.length > 0) {
+            const confirmResult = await showConfirm(
+                "发现重复密钥",
+                `以下密钥已存在：\n${duplicateKeys.join('\n')}\n\n是否跳过重复的密钥并添加其余密钥？`
+            );
+            if (!confirmResult) return;
+        }
+        
+        // 添加不重复的密钥
+        const uniqueNewKeys = newKeys.filter(k => !currentGeminiKeys.includes(k));
+        currentGeminiKeys.push(...uniqueNewKeys);
+        
+        checkGeminiKeysModified();
+        renderGeminiKeys();
+        
+        alert(`成功添加 ${uniqueNewKeys.length} 个新密钥${duplicateKeys.length > 0 ? `，跳过 ${duplicateKeys.length} 个重复密钥` : ''}。`);
+    }
+}
+
+// 保存Gemini密钥到服务器
+async function saveGeminiKeysToServer() {
+    if (!geminiKeysModified) {
+        alert('没有需要保存的更改。');
+        return;
+    }
+    
+    const password = await showPrompt("确认保存", "为确认更改，请输入管理员密码:", '', 'password');
+    if (password === null) {
+        return;
+    }
+
+    const keysString = currentGeminiKeys.join(',');
+    const data = {
+        'GEMINI_API_KEYS': keysString,
+        'password': password
+    };
+
+    showLoader();
+    try {
+        const response = await fetch('/admin/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (response.ok) {
+            originalGeminiKeys = [...currentGeminiKeys];
+            geminiKeysModified = false;
+            updateGeminiKeysStatus();
+            alert('保存成功！');
+        } else {
+            alert('保存失败：' + (result.detail || '未知错误'));
+        }
+    } catch (error) {
+        console.error('更新失败:', error);
+        alert('更新失败，请查看浏览器控制台获取更多信息。');
+    } finally {
+        hideLoader();
+    }
+}
+
+async function addGeminiKey() {
+    // 保留原函数以兼容现有代码，但重定向到新函数
+    await showAddGeminiKeyModal();
 }
 
 async function editGeminiKey(oldKey) {
@@ -484,7 +642,8 @@ async function editGeminiKey(oldKey) {
                 return;
             }
             currentGeminiKeys[index] = newKey.trim();
-            await saveGeminiKeys();
+            checkGeminiKeysModified();
+            renderGeminiKeys();
         }
     }
 }
@@ -493,7 +652,8 @@ async function deleteGeminiKey(keyToDelete) {
     const confirmed = await showConfirm("确认删除", `确定要删除密钥 "${keyToDelete}" 吗?`);
     if (confirmed) {
         currentGeminiKeys = currentGeminiKeys.filter(key => key !== keyToDelete);
-        await saveGeminiKeys();
+        checkGeminiKeysModified();
+        renderGeminiKeys();
     }
 }
 
@@ -1024,35 +1184,48 @@ function loadAccessKeys() {
         document.getElementById('status-header').textContent='状态❇️';
         accessKeyFilterState = 0 //重置筛选 0: 全部, 1: 有效, 2: 无效
         allAccessKeys = data; // Store all keys for validation
-        const tbody = document.querySelector('#access-keys-table tbody');
-        tbody.innerHTML = '';
-        Object.keys(data).reverse().forEach((key_id, index) => {
-           const key = data[key_id];
-            const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
-            const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit} 次` : '无限制';
-            const statusClass = key.is_active ? 'status-active' : 'status-inactive';
-            const statusText = key.is_active ? '有效' : '无效';
-            const resetDailyText = key.reset_daily ? '是' : '否';
-            const resetDailyClass = key.reset_daily ? 'status-active' : 'status-inactive';
-            const row = `
-                <tr>
-                    <td>${index + 1}</td>
-                    <td>${key.name || ''}</td>
-                    <td class="truncate-text" title="点击复制: ${key.key}" onclick="copyTextToClipboard(this, '${key.key}')">${key.key}</td>
-                    <td>${usage}</td>
-                    <td>${expires}</td>
-                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                    <td><span class="status-badge ${resetDailyClass}">${resetDailyText}</span></td>
-                    <td>
-                        <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')" title="编辑">✏️</button>
-                        <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}', '${encodeURIComponent(key.name || '')}')" title="删除">🗑️</button>
-                    </td>
-                </tr>
-            `;
-            tbody.innerHTML += row;
-        });
+        originalAccessKeys = JSON.parse(JSON.stringify(data)); // 深拷贝用于比较
+        renderAccessKeys();
     });
 }
+
+// 渲染访问密钥表格
+function renderAccessKeys() {
+    const tbody = document.querySelector('#access-keys-table tbody');
+    tbody.innerHTML = '';
+    Object.keys(allAccessKeys).reverse().forEach((key_id, index) => {
+       const key = allAccessKeys[key_id];
+        const expires = key.expires_at ? new Date(key.expires_at * 1000).toLocaleString() : '永不';
+        const usage = key.usage_limit !== null ? `${key.usage_count} / ${key.usage_limit} 次` : '无限制';
+        const statusClass = key.is_active ? 'status-active' : 'status-inactive';
+        const statusText = key.is_active ? '有效' : '无效';
+        const resetDailyText = key.reset_daily ? '是' : '否';
+        const resetDailyClass = key.reset_daily ? 'status-active' : 'status-inactive';
+        const row = `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${key.name || ''}</td>
+                <td class="truncate-text" title="点击复制: ${key.key}" onclick="copyTextToClipboard(this, '${key.key}')">${key.key}</td>
+                <td>${usage}</td>
+                <td>${expires}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td><span class="status-badge ${resetDailyClass}">${resetDailyText}</span></td>
+                <td>
+                    <button type="button" class="action-btn edit-btn" onclick="editAccessKey('${key.key}')" title="编辑">✏️</button>
+                    <button type="button" class="action-btn delete-btn" onclick="deleteAccessKey('${key.key}', '${encodeURIComponent(key.name || '')}')" title="删除">🗑️</button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+
+    // 更新总数量显示
+    const keysCountElement = document.getElementById('access-keys-count');
+    if (keysCountElement) {
+        keysCountElement.textContent = Object.keys(allAccessKeys).length;
+    }
+}
+
 
 function showAccessKeyPrompt(title, keyData = {}) {
     return new Promise(resolve => {
@@ -1063,6 +1236,7 @@ function showAccessKeyPrompt(title, keyData = {}) {
         modalText.style.display = 'none';
         modalSingleInputContainer.style.display = 'none';
         modalMappingContainer.style.display = 'none';
+        modalTextareaContainer.style.display = 'none';
         
         // Show the access key container
         const accessKeyContainer = document.getElementById('modal-access-key-container');
@@ -1174,21 +1348,30 @@ async function addAccessKey() {
     };
 
     showLoader();
-    fetch('/admin/keys', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify(data)
-    })
-    .then(handleApiResponse)
-    .then(loadAccessKeys)
-    .catch(error => {
+    try {
+        const response = await fetch('/admin/keys', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            // 重新加载访问密钥列表
+            loadAccessKeys();
+            alert('添加成功！');
+        } else {
+            const result = await response.json();
+            alert('添加失败：' + (result.detail || '未知错误'));
+        }
+    } catch (error) {
         console.error('添加访问密钥失败:', error);
         alert('添加访问密钥失败: ' + error.message);
-    })
-    .finally(hideLoader);
+    } finally {
+        hideLoader();
+    }
 }
 
 async function editAccessKey(key) {
@@ -1225,17 +1408,30 @@ async function editAccessKey(key) {
     };
 
     showLoader();
-    fetch(`/admin/keys/${key}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify(data)
-    })
-    .then(handleApiResponse)
-    .then(loadAccessKeys)
-    .finally(hideLoader);
+    try {
+        const response = await fetch(`/admin/keys/${key}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            // 重新加载访问密钥列表
+            loadAccessKeys();
+            alert('编辑成功！');
+        } else {
+            const result = await response.json();
+            alert('编辑失败：' + (result.detail || '未知错误'));
+        }
+    } catch (error) {
+        console.error('编辑访问密钥失败:', error);
+        alert('编辑访问密钥失败: ' + error.message);
+    } finally {
+        hideLoader();
+    }
 }
 
 async function deleteAccessKey(key, name) {
@@ -1244,13 +1440,26 @@ async function deleteAccessKey(key, name) {
     if (!confirmed) return;
 
     showLoader();
-    fetch(`/admin/keys/${key}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + token }
-    })
-    .then(handleApiResponse)
-    .then(loadAccessKeys)
-    .finally(hideLoader);
+    try {
+        const response = await fetch(`/admin/keys/${key}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (response.ok) {
+            // 重新加载访问密钥列表
+            loadAccessKeys();
+            alert('删除成功！');
+        } else {
+            const result = await response.json();
+            alert('删除失败：' + (result.detail || '未知错误'));
+        }
+    } catch (error) {
+        console.error('删除访问密钥失败:', error);
+        alert('删除访问密钥失败: ' + error.message);
+    } finally {
+        hideLoader();
+    }
 }
 
 

@@ -49,7 +49,7 @@ input:focus {
     border-color: var(--primary-color);
 }
 button {
-    display: block;
+    display: inline-block;
     width: 100%;
     padding: 0.9em 1.5em;
     cursor: pointer;
@@ -686,4 +686,75 @@ input:checked + .slider:before {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* 密钥管理控件样式 */
+.keys-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1em;
+    padding: 0.8em;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.keys-info {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+}
+
+.keys-count {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.keys-status {
+    padding: 0.3em 0.6em;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.keys-status.modified {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.keys-status.saved {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.keys-actions {
+    display: flex;
+    gap: 0.5em;
+    flex-wrap: wrap;
+}
+
+.save-btn {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+    width: auto;
+    padding: 0.6em 1.2em;
+    margin-top: 1em;
+}
+
+.save-btn:hover {
+    background-color: #218838;
+}
+
+.modal-textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    resize: vertical;
+    min-height: 120px;
 }
