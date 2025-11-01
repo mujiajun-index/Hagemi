@@ -26,6 +26,16 @@ class GeminiServiceUnavailableError(Exception):
         self.status_code = status_code
         self.message = message
         self.extra = extra
+class GeminiAPIError(Exception):
+    """
+    自定义异常类，用于表示调用 Gemini API 时发生的特定错误。
+    """
+    def __init__(self, message: str, status_code: int, extra: dict = {}):
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+        self.extra = extra
+
 # 用于存储日志的全局变量
 log_records = deque(maxlen=1000) # 最多存储1000条日志
 log_new_lock = Lock() # 用于保护标识新日志的锁
@@ -207,6 +217,11 @@ class APIKeyManager:
 
 def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") -> str:
     if isinstance(error, GeminiServiceUnavailableError):
+        error_message = error.message
+        log_msg = format_log_message('WARNING', f"Gemini服务不可用: {error_message}", extra=error.extra)
+        logger.warning(log_msg)
+        return error_message
+    elif isinstance(error,GeminiAPIError):
         error_message = error.message
         log_msg = format_log_message('WARNING', f"Gemini服务不可用: {error_message}", extra=error.extra)
         logger.warning(log_msg)
