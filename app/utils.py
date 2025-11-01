@@ -218,12 +218,12 @@ class APIKeyManager:
 def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") -> str:
     if isinstance(error, GeminiServiceUnavailableError):
         error_message = error.message
-        log_msg = format_log_message('WARNING', f"Gemini服务不可用: {error_message}", extra=error.extra)
+        log_msg = format_log_message('WARNING', f"Gemini服务不可用[{error.status_code}]: {error_message}", extra=error.extra)
         logger.warning(log_msg)
         return error_message
     elif isinstance(error,GeminiAPIError):
         error_message = error.message
-        log_msg = format_log_message('WARNING', f"Gemini服务不可用: {error_message}", extra=error.extra)
+        log_msg = format_log_message('WARNING', f"Gemini服务不可用[{error.status_code}]: {error_message}", extra=error.extra)
         logger.warning(log_msg)
         return error_message
     elif isinstance(error, requests.exceptions.HTTPError):

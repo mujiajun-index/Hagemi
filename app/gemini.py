@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 import httpx
 import logging
 import datetime
-import base64
+from .utils import GeminiAPIError
 
 logger = logging.getLogger('my_logger')
 from dotenv import load_dotenv
@@ -387,14 +387,16 @@ class GeminiClient:
                                             await callback(text)
                                         
                                 if candidate.get("finishReason") and candidate.get("finishReason") != "STOP":
-                                    raise ValueError(f"模型的响应被截断: {candidate.get('finishReason')}")
+                                    raise ValueError(f"模型的响应被截断01: {candidate.get('finishReason')}")
                                 
                                 if 'safetyRatings' in candidate:
                                     for rating in candidate['safetyRatings']:
                                         if rating['probability'] == 'HIGH':
-                                            raise ValueError(f"模型的响应被截断: {rating['category']}")
+                                            raise ValueError(f"模型的响应被截断02: {rating['category']}")
                             elif 'error' in json_data and json_data['error']:
-                                raise ValueError(f"模型的响应被截断: {json_data['error']}")
+                                code = json_data['error']['code']
+                                message = json_data['error']['message']
+                                raise GeminiAPIError(f"模型的响应异常:{message}",code,{})
                         except json.JSONDecodeError:
                             continue
                         except Exception as e:

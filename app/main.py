@@ -417,19 +417,35 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     async def stream_task():
                         nonlocal gemini_client
                         try:
-                            for emptyAttempt in range(1,GEMINI_EMPTY_RESPONSE_RETRIES+1):
-                                response_wrapper = await gemini_client.stream_chat(
-                                    chat_request, contents,
-                                    safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings,
-                                    system_instruction,
-                                    callback
-                                )
-                                if not response_wrapper.text and emptyAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
-                                    switch_api_key()
-                                    gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
-                                else:
-                                    await queue.put(response_wrapper)
-                                    break
+                            for streamAttempt in range(1, retry_attempts + 1):
+                                try:
+                                    response_wrapper = await gemini_client.stream_chat(
+                                        chat_request, contents,
+                                        safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings,
+                                        system_instruction,
+                                        callback
+                                    )
+                                    if not response_wrapper.text and streamAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
+                                        switch_api_key()
+                                        gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 504}
+                                        handle_gemini_error(GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log), current_api_key, key_manager, client_ip)
+                                        continue
+                                    else:
+                                        await queue.put(response_wrapper)
+                                        break
+                                except GeminiAPIError as e:
+                                    status_code = e.status_code
+                                    if status_code == 503 and attempt < GEMINI_503_RETRIES+1:
+                                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
+                                        handle_gemini_error(GeminiAPIError("Gemini返回503错误,模型超载",503,extra_log), current_api_key, key_manager, client_ip)
+                                        switch_api_key()
+                                        gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                        continue
+                                    else:
+                                        await queue.put(e)
+                                        break
+
                         except Exception as e:
                             await queue.put(e)
                         finally:
@@ -611,6 +627,8 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     if status_code == 503 and attempt < GEMINI_503_RETRIES+1:
                         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
                         raise GeminiAPIError("Gemini返回503错误,模型超载",503,extra_log)
+                    else:
+                        raise e
 
         except GeminiServiceUnavailableError as e:
             if e.status_code == 504:
