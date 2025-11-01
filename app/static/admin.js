@@ -367,6 +367,7 @@ let accessKeyFilterState = 0; // 0: 全部, 1: 有效, 2: 无效
 
 // 数据修改状态
 let geminiKeysModified = false;
+let invalidKeys = [];
 
 // The function now accepts the environment data as an argument
 function loadGeminiKeys(data) {
@@ -576,6 +577,7 @@ async function showBulkAddGeminiKeysModal() {
     const keysText = await showTextareaPrompt({
         title: "批量操作密钥",
         text: "",
+        confirmText: "确认",
     });
 
     // Cleanup
@@ -793,10 +795,18 @@ async function checkKeyAvailability(key) {
             } else {
                 statusSpan.textContent = `检查结果: ${result.message}`;
                 applyStyle('red');
+                if (!invalidKeys.includes(key)) {
+                    invalidKeys.push(key);
+                }
+                updateDeleteInvalidKeysButtonVisibility();
             }
         } else {
             statusSpan.textContent = `检查失败: ${result.detail || '未知错误'}`;
             applyStyle('red');
+            if (!invalidKeys.includes(key)) {
+                invalidKeys.push(key);
+            }
+            updateDeleteInvalidKeysButtonVisibility();
         }
     } catch (error) {
         console.error('检查密钥时出错:', error);
@@ -810,6 +820,8 @@ function sleep(ms) {
 }
 
 async function checkAllKeysAvailability() {
+    invalidKeys = [];
+    updateDeleteInvalidKeysButtonVisibility();
     const keysToCheck = [...currentGeminiKeys]; // 创建一个副本以进行迭代
     for (const key of keysToCheck) {
         await checkKeyAvailability(key);
@@ -818,10 +830,13 @@ async function checkAllKeysAvailability() {
 }
 
 async function checkAllKeysRealValidity() {
+    modalConfirmBtn.textContent = '确认';
     const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
     if (!model) {
         return;
     }
+    invalidKeys = []; // 开始检查前清空列表
+    updateDeleteInvalidKeysButtonVisibility();
 
     const keysToCheck = [...currentGeminiKeys];
     for (const key of keysToCheck) {
@@ -868,15 +883,78 @@ async function checkKeyRealValidity(key, model) {
             } else {
                 statusSpan.textContent = `检查结果: ${result.message}`;
                 applyStyle('red');
+                if (!invalidKeys.includes(key)) {
+                    invalidKeys.push(key);
+                }
+                updateDeleteInvalidKeysButtonVisibility();
             }
         } else {
             statusSpan.textContent = `检查失败: ${result.detail || '未知错误'}`;
             applyStyle('red');
+            if (!invalidKeys.includes(key)) {
+                invalidKeys.push(key);
+            }
+            updateDeleteInvalidKeysButtonVisibility();
         }
     } catch (error) {
         console.error('检查密钥时出错:', error);
         statusSpan.textContent = '检查时发生网络错误。';
         applyStyle('red');
+    }
+}
+
+async function showDeleteInvalidKeysModal() {
+    if (invalidKeys.length === 0) {
+        alert('没有检测到无效的密钥。');
+        return;
+    }
+
+    const keysToDeleteText = invalidKeys.join('\n');
+    const result = await showTextareaPrompt({
+        title: "确认删除无效密钥",
+        text: "以下是在检查中被标记为无效的密钥。请确认是否要将它们从列表中删除。",
+        defaultValue: keysToDeleteText,
+        confirmText: "确认删除",
+        cancelText: "取消"
+    });
+
+    if (result) {
+        const keysToDelete = result.split('\n').map(k => k.trim()).filter(k => k);
+        bulkDeleteGeminiKeys(keysToDelete);
+    }
+}
+
+function bulkDeleteGeminiKeys(keysToDelete) {
+    if (!Array.isArray(keysToDelete) || keysToDelete.length === 0) {
+        alert('没有要删除的密钥。');
+        return;
+    }
+
+    let deletedCount = 0;
+    currentGeminiKeys = currentGeminiKeys.filter(key => {
+        if (keysToDelete.includes(key)) {
+            deletedCount++;
+            return false;
+        }
+        return true;
+    });
+
+    if (deletedCount > 0) {
+        checkGeminiKeysModified();
+        renderGeminiKeys();
+        // After deletion, update the invalidKeys array and button visibility
+        invalidKeys = invalidKeys.filter(k => !keysToDelete.includes(k));
+        updateDeleteInvalidKeysButtonVisibility();
+        alert(`成功删除了 ${deletedCount} 个无效密钥。请记得点击“保存更改”以应用。`);
+    } else {
+        alert('没有找到与输入匹配的密钥。');
+    }
+}
+
+function updateDeleteInvalidKeysButtonVisibility() {
+    const deleteButton = document.getElementById('delete-invalid-keys-btn');
+    if (deleteButton) {
+        deleteButton.style.display = invalidKeys.length > 0 ? 'inline-block' : 'none';
     }
 }
 
