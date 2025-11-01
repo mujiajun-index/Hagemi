@@ -984,7 +984,6 @@ async def check_gemini_key(payload: dict = Body(...)):
     api_key = payload.get("key")
     if not api_key:
         raise HTTPException(status_code=400, detail="API key is required")
-    
     try:
         is_valid = await test_api_key(api_key)
         if is_valid:
@@ -996,6 +995,27 @@ async def check_gemini_key(payload: dict = Body(...)):
         # 发生异常时返回500
         logger.error(f"检查密钥时发生未知错误: {e}")
         return JSONResponse(status_code=500, content={"valid": False, "message": f"检查密钥时发生内部错误: {str(e)}"})
+
+# 检查真实的Gemini API密钥是否有效
+@app.post("/admin/check_gemini_key_real", dependencies=[Depends(verify_jwt_token)])
+async def check_gemini_key_real(payload: dict = Body(...)):
+    api_key = payload.get("key")
+    model = payload.get("model")
+    if not api_key or not model:
+        raise HTTPException(status_code=400, detail="API key and model are required")
+    try:
+        gemini_client = GeminiClient(api_key, storage=global_image_storage)
+        chat_request = ChatCompletionRequest(model=model, messages=[{"role": "user", "content": "test"}])
+        contents, system_instruction = GeminiClient.convert_messages(GeminiClient, chat_request.messages)
+        response_content = await asyncio.to_thread(gemini_client.complete_chat, chat_request, contents, safety_settings, system_instruction)
+        
+        if response_content and response_content.text:
+            return JSONResponse(content={"valid": True, "message": "API 密钥真实有效"})
+        else:
+            return JSONResponse(content={"valid": False, "message": "API 密钥有效但返回内容为空"})
+    except Exception as e:
+        error_detail = handle_gemini_error(e, api_key, None)
+        return JSONResponse(status_code=200, content={"valid": False, "message": error_detail})
 
 @app.get("/admin/media", dependencies=[Depends(verify_jwt_token)])
 async def list_media(storage_type: str = 'local', page: int = 1, page_size: int = 10):

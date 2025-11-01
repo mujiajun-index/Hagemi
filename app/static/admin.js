@@ -319,7 +319,6 @@ function handleApiResponse(response) {
 async function saveGroupSettings(groupContentElement) {
     const password = await showPrompt("确认更改", "请输入管理员密码以保存更改:", '', 'password');
     if (password === null) {
-        alert('操作已取消。');
         return;
     }
 
@@ -721,7 +720,6 @@ async function saveGeminiKeys() {
     const password = await showPrompt("确认操作", "为确认更改，请输入管理员密码:", '', 'password');
     if (password === null) {
         // 用户取消输入密码，不需要任何操作，因为更改尚未应用
-        alert('操作已取消。');
         return;
     }
 
@@ -816,6 +814,69 @@ async function checkAllKeysAvailability() {
     for (const key of keysToCheck) {
         await checkKeyAvailability(key);
         await sleep(200); // 每0.2秒检查一个，以避免请求过快
+    }
+}
+
+async function checkAllKeysRealValidity() {
+    const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
+    if (!model) {
+        return;
+    }
+
+    const keysToCheck = [...currentGeminiKeys];
+    for (const key of keysToCheck) {
+        await checkKeyRealValidity(key, model);
+        await sleep(200);
+    }
+}
+
+async function checkKeyRealValidity(key, model) {
+    const safeKeyId = key.replace(/[^a-zA-Z0-9]/g, '');
+    const statusSpan = document.getElementById(`key-status-${safeKeyId}`);
+    const keyCell = document.getElementById(`key-cell-${safeKeyId}`);
+
+    statusSpan.textContent = '正在检查...';
+    statusSpan.style.color = '#4a90e2';
+    if (keyCell) {
+        keyCell.style.color = 'inherit';
+        keyCell.style.fontWeight = 'normal';
+    }
+
+    try {
+        const response = await fetch('/admin/check_gemini_key_real', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ key: key, model: model })
+        });
+        const result = await response.json();
+        
+        const applyStyle = (color) => {
+            statusSpan.style.color = color;
+            if (keyCell) {
+                keyCell.style.color = color;
+                keyCell.style.fontWeight = 'bold';
+            }
+        };
+
+        if (response.ok) {
+            if (result.valid) {
+                statusSpan.textContent = `检查结果: ${result.message}`;
+                applyStyle('green');
+            } else {
+                statusSpan.textContent = `检查结果: ${result.message}`;
+                applyStyle('red');
+            }
+        } else {
+            statusSpan.textContent = `检查失败: ${result.detail || '未知错误'}`;
+            applyStyle('red');
+        }
+    } catch (error) {
+        console.error('检查密钥时出错:', error);
+        statusSpan.textContent = '检查时发生网络错误。';
+        applyStyle('red');
     }
 }
 
