@@ -830,15 +830,36 @@ async function checkAllKeysAvailability() {
 }
 
 async function checkAllKeysRealValidity() {
+    const checkTargetContainer = document.getElementById('modal-check-target-container');
+    checkTargetContainer.style.display = 'block'; // Manually show the container
+
     modalConfirmBtn.textContent = '确认';
     const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
+    
+    checkTargetContainer.style.display = 'none'; // Manually hide it after
+
     if (!model) {
         return;
     }
+    
+    const checkTarget = document.getElementById('modal-check-target').value;
+
     invalidKeys = []; // 开始检查前清空列表
     updateDeleteInvalidKeysButtonVisibility();
 
-    const keysToCheck = [...currentGeminiKeys];
+    let keysToCheck;
+    if (checkTarget === 'new') {
+        // Filter for keys that are in currentGeminiKeys but not in originalGeminiKeys
+        keysToCheck = currentGeminiKeys.filter(k => !originalGeminiKeys.includes(k));
+        if (keysToCheck.length === 0) {
+            alert('没有新增的密钥可供检查。');
+            return;
+        }
+    } else {
+        // "all" keys
+        keysToCheck = [...currentGeminiKeys];
+    }
+
     for (const key of keysToCheck) {
         await checkKeyRealValidity(key, model);
         await sleep(200);

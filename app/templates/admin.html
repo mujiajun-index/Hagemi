@@ -29,7 +29,7 @@
                      <div class="keys-actions">
                          <button type="button" class="add-btn" onclick="showAddGeminiKeyModal()">+ 添加密钥</button>
                          <button type="button" class="add-btn bulk-action-btn" onclick="showBulkAddGeminiKeysModal()">+ 批量操作</button>
-                         <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性(快速)</button>
+                         <!-- <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysAvailability()">🔍 批量检查有效性快速</button> -->
                          <button type="button" class="add-btn bulk-action-btn" onclick="checkAllKeysRealValidity()">🧪 批量检查真实有效性</button>
                          <button type="button" class="add-btn delete-btn" id="delete-invalid-keys-btn" onclick="showDeleteInvalidKeysModal()" style="display: none;">🗑️ 删除已检测出的无效密钥</button>
                          <button type="button" class="save-btn" id="save-gemini-keys-btn" onclick="saveGeminiKeysToServer()" style="display: none;">💾 保存更改</button>
@@ -185,6 +185,13 @@
            </div>
            <div class="modal-body">
                <p id="modal-text" style="margin-top: 0;"></p>
+               <div id="modal-check-target-container" style="display: none; margin-bottom: 1em;">
+                   <label for="modal-check-target" style="display:block; font-weight: bold;">检查目标:</label>
+                   <select id="modal-check-target" class="modal-input">
+                       <option value="all">所有密钥</option>
+                       <option value="new">新增密钥</option>
+                   </select>
+               </div>
                <div id="modal-single-input-container">
                    <input type="text" id="modal-input" class="modal-input">
                </div>
