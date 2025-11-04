@@ -317,13 +317,15 @@ class GeminiClient:
         # 思考模型需要设置思维预算
         if thinking_budget is not None:
             data["generationConfig"]["thinkingConfig"] = {
-                "thinkingBudget": thinking_budget
+                "thinkingBudget": thinking_budget,
+                "includeThoughts": True
             }
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
                 buffer = b""
                 full_response_data = {}
+                isThink = False
                 try:
                     async for line in response.aiter_lines():
                         if not line.strip():
@@ -368,21 +370,30 @@ class GeminiClient:
                                         parts = content['parts']
                                         text = ""
                                         for part in parts:
-                                            if 'text' in part:
+                                            if 'thought' in part and 'text' in part:
+                                                if not isThink:
+                                                    isThink = True
+                                                    text += "<think>"
                                                 text += part['text']
-                                            if 'inlineData' in part:
-                                                inline_data = part['inlineData']
-                                                if 'mimeType' in inline_data and 'data' in inline_data:
-                                                    mime_type = inline_data['mimeType']
-                                                    base64_data = inline_data['data']
-                                                    upload_start_time = datetime.datetime.now()
-                                                    logger.info(f"生成的图片数据: {mime_type}--{len(base64_data)}")
-                                                    image_url = self._save_image(mime_type, base64_data)
-                                                    upload_end_time = datetime.datetime.now()
-                                                    upload_duration = (upload_end_time - upload_start_time).total_seconds()
-                                                    logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
-                                                    logger.info(f"图片的访问地址: {image_url}")
-                                                    text += f"![]({image_url})"
+                                            else:   
+                                                if 'text' in part:
+                                                    if isThink:
+                                                        text += "</think>"
+                                                        isThink = False
+                                                    text += part['text']
+                                                if 'inlineData' in part:
+                                                    inline_data = part['inlineData']
+                                                    if 'mimeType' in inline_data and 'data' in inline_data:
+                                                        mime_type = inline_data['mimeType']
+                                                        base64_data = inline_data['data']
+                                                        upload_start_time = datetime.datetime.now()
+                                                        logger.info(f"生成的图片数据: {mime_type}--{len(base64_data)}")
+                                                        image_url = self._save_image(mime_type, base64_data)
+                                                        upload_end_time = datetime.datetime.now()
+                                                        upload_duration = (upload_end_time - upload_start_time).total_seconds()
+                                                        logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
+                                                        logger.info(f"图片的访问地址: {image_url}")
+                                                        text += f"![]({image_url})"
                                         if text:
                                             await callback(text)
                                         
