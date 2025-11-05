@@ -418,6 +418,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
 
                     async def stream_task():
                         nonlocal gemini_client
+                        isSuccess = False
                         try:
                             for streamAttempt in range(1, retry_attempts + 1):
                                 try:
@@ -436,6 +437,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                         continue
                                     else:
                                         await queue.put(response_wrapper)
+                                        isSuccess = True
                                         break
                                 except GeminiAPIError as e:
                                     status_code = e.status_code
@@ -456,6 +458,9 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                     else:
                                         await queue.put(e)
                                         break
+
+                            if not isSuccess:
+                                raise GeminiAPIError(f"服务异常,请稍后重试",500,{})
 
                         except Exception as e:
                             await queue.put(e)
