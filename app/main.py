@@ -109,6 +109,7 @@ VERSION = os.environ.get('VERSION', "1.0.0")
 GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
 GEMINI_503_RETRIES = int(os.environ.get('GEMINI_503_RETRIES', '3'))
 GEMINI_429_RETRIES = int(os.environ.get('GEMINI_429_RETRIES', '3'))
+GEMINI_RETRY_DELAY = float(os.environ.get('GEMINI_RETRY_DELAY', '1'))
 
 safety_settings = [
     {
@@ -431,6 +432,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                         handle_gemini_error(GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                        await asyncio.sleep(GEMINI_RETRY_DELAY)
                                         continue
                                     else:
                                         await queue.put(response_wrapper)
@@ -442,12 +444,14 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                         handle_gemini_error(GeminiAPIError("Gemini返回503错误,模型超载",503,extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                        await asyncio.sleep(GEMINI_RETRY_DELAY)
                                         continue
                                     elif status_code == 429 and streamAttempt < GEMINI_429_RETRIES + 1:
                                         extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 429}
                                         handle_gemini_error(GeminiAPIError("Gemini返回429错误,密钥配额已用尽或其他原因", 429, extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
+                                        await asyncio.sleep(GEMINI_RETRY_DELAY)
                                         continue
                                     else:
                                         await queue.put(e)
@@ -654,6 +658,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                 handle_gemini_error(e, current_api_key, key_manager, client_ip)
                 if attempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
                     switch_api_key()
+                    await asyncio.sleep(GEMINI_RETRY_DELAY)
                     continue
                 raise
         except HTTPException as e:
@@ -670,12 +675,14 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                 handle_gemini_error(e, current_api_key, key_manager, client_ip)
                 if attempt < GEMINI_503_RETRIES + 1:
                     switch_api_key()
+                    await asyncio.sleep(GEMINI_RETRY_DELAY)
                     continue
                 raise
             elif e.status_code == 429:
                 handle_gemini_error(e, current_api_key, key_manager, client_ip)
                 if attempt < GEMINI_429_RETRIES + 1:
                     switch_api_key()
+                    await asyncio.sleep(GEMINI_RETRY_DELAY)
                     continue
                 raise
         except Exception as e:
@@ -778,6 +785,7 @@ async def get_env_vars(_: None = Depends(verify_jwt_token)):
             "GEMINI_EMPTY_RESPONSE_RETRIES": {"label": "Gemini空响应重试次数", "value": os.environ.get("GEMINI_EMPTY_RESPONSE_RETRIES", "3"), "description": "Gemini API返回空响应时的最大重试次数。"},
             "GEMINI_503_RETRIES": {"label": "Gemini服务503异常重试次数", "value": os.environ.get("GEMINI_503_RETRIES", "3"), "description": "Gemini API当遇到503服务不可用错误时的最大重试次数。"},
             "GEMINI_429_RETRIES": {"label": "Gemini服务429异常重试次数", "value": os.environ.get("GEMINI_429_RETRIES", "3"), "description": "Gemini API当遇到429密钥配额已用尽或其他原因错误时的最大重试次数。"},
+            "GEMINI_RETRY_DELAY": {"label": "Gemini服务异常重试间隔时间(秒)", "value": os.environ.get("GEMINI_RETRY_DELAY", "1"), "description": "Gemini API当遇到异常时重试的间隔时间（秒）。"},
             "PROXY_URL": {"label": "代理URL", "value": os.environ.get("PROXY_URL", ""), "description": "用于访问Gemini API的HTTP/HTTPS代理地址。"},
         },
         "图片处理与存储": {
@@ -870,7 +878,7 @@ async def login_for_access_token(request: Request):
     return {"access_token": access_token, "token_type": "bearer"}
 
 async def reload_config():
-    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, GEMINI_EMPTY_RESPONSE_RETRIES, GEMINI_503_RETRIES, GEMINI_429_RETRIES, global_image_storage, key_manager
+    global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, GEMINI_EMPTY_RESPONSE_RETRIES, GEMINI_503_RETRIES, GEMINI_429_RETRIES, GEMINI_RETRY_DELAY, global_image_storage, key_manager
 
     MAX_REQUESTS_PER_MINUTE = int(os.environ.get("MAX_REQUESTS_PER_MINUTE", "30"))
     MAX_REQUESTS_PER_DAY_PER_IP = int(os.environ.get("MAX_REQUESTS_PER_DAY_PER_IP", "600"))
@@ -881,6 +889,7 @@ async def reload_config():
     GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
     GEMINI_503_RETRIES = int(os.environ.get('GEMINI_503_RETRIES', '3'))
     GEMINI_429_RETRIES = int(os.environ.get('GEMINI_429_RETRIES', '3'))
+    GEMINI_RETRY_DELAY = float(os.environ.get('GEMINI_RETRY_DELAY', '1'))
     # 重新初始化代理URL
     GeminiClient.BASE_URL = os.environ.get("PROXY_URL") or "https://generativelanguage.googleapis.com"
     # 重新初始化自定义模型列表
