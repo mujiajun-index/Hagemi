@@ -464,28 +464,33 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                     try:
                         while True:
                             item = await queue.get()
-                            content = None
-                            reasoning_content = None
                             if item is None:
                                 break
-                            if isinstance(item, Exception):
-                                raise item
-                            if isinstance(item, ResponseWrapper):
+                            elif isinstance(item, str):
+                                formatted_chunk = {
+                                    "id": "chatcmpl-someid",
+                                    "object": "chat.completion.chunk",
+                                    "created": int(time.time()),
+                                    "model": chat_request.model,
+                                    "choices": [{"delta": {"role": "assistant", "content": item}, "index": 0, "finish_reason": None}]
+                                }
+                                yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                                continue
+                            elif isinstance(item, Thought): #检查是否是思考内容
+                                formatted_chunk = {
+                                    "id": "chatcmpl-someid",
+                                    "object": "chat.completion.chunk",
+                                    "created": int(time.time()),
+                                    "model": chat_request.model,
+                                    "choices": [{"delta": {"role": "assistant", "reasoning_content": item.value}, "index": 0, "finish_reason": None}]
+                                }
+                                yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                                continue
+                            elif isinstance(item, ResponseWrapper):
                                 response_wrapper = item
                                 break
-                            if isinstance(item, Thought):
-                                #检查是否是思考内容
-                                reasoning_content = item.value
-                            else:
-                                content = item
-                            formatted_chunk = {
-                                "id": "chatcmpl-someid",
-                                "object": "chat.completion.chunk",
-                                "created": int(time.time()),
-                                "model": chat_request.model,
-                                "choices": [{"delta": {"role": "assistant", "content": content,"reasoning_content": reasoning_content}, "index": 0, "finish_reason": None}]
-                            }
-                            yield f"data: {json.dumps(formatted_chunk)}\n\n"
+                            elif isinstance(item, Exception):
+                                raise item   
                         
                         duration = time.monotonic() - start_time
                         
