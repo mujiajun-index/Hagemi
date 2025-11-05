@@ -61,3 +61,6 @@ class AccessKeyCreate(BaseModel):
     expires_at: Optional[int] = None
     is_active: bool = True
     reset_daily: bool = False
+
+class Thought(BaseModel):
+    value: str

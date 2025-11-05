@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse, Fil
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList
+from .models import AccessKey, AccessKeyCreate, ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, ModelList ,Thought
 from .gemini import GeminiClient, ResponseWrapper
 from .utils import handle_gemini_error, protect_from_abuse, APIKeyManager, test_api_key, format_log_message, generate_random_alphanumeric, get_client_ip,log_records,get_log_new,set_log_new,download_image_to_base64, GeminiServiceUnavailableError, GeminiAPIError
 
@@ -460,11 +460,12 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
 
                     task = asyncio.create_task(stream_task())
                     
-                    response_text = ""
                     response_wrapper = None
                     try:
                         while True:
                             item = await queue.get()
+                            content = None
+                            reasoning_content = None
                             if item is None:
                                 break
                             if isinstance(item, Exception):
@@ -472,14 +473,17 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             if isinstance(item, ResponseWrapper):
                                 response_wrapper = item
                                 break
-                            
-                            response_text += item
+                            if isinstance(item, Thought):
+                                #检查是否是思考内容
+                                reasoning_content = item.value
+                            else:
+                                content = item
                             formatted_chunk = {
                                 "id": "chatcmpl-someid",
                                 "object": "chat.completion.chunk",
                                 "created": int(time.time()),
                                 "model": chat_request.model,
-                                "choices": [{"delta": {"role": "assistant", "content": item}, "index": 0, "finish_reason": None}]
+                                "choices": [{"delta": {"role": "assistant", "content": content,"reasoning_content": reasoning_content}, "index": 0, "finish_reason": None}]
                             }
                             yield f"data: {json.dumps(formatted_chunk)}\n\n"
                         

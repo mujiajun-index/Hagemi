@@ -10,7 +10,7 @@ import httpx
 import logging
 import datetime
 from .utils import GeminiAPIError
-
+from .models import Thought
 logger = logging.getLogger('my_logger')
 from dotenv import load_dotenv
 # 加载.env文件中的环境变量
@@ -325,7 +325,6 @@ class GeminiClient:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
                 buffer = b""
                 full_response_data = {}
-                isThink = False
                 try:
                     async for line in response.aiter_lines():
                         if not line.strip():
@@ -368,18 +367,13 @@ class GeminiClient:
                                     content = candidate['content']
                                     if 'parts' in content and content['parts']:
                                         parts = content['parts']
+                                        reasoning_content = ""
                                         text = ""
                                         for part in parts:
                                             if 'thought' in part and 'text' in part:
-                                                if not isThink:
-                                                    isThink = True
-                                                    text += "<think>"
-                                                text += part['text']
+                                                reasoning_content += part['text']
                                             else:   
                                                 if 'text' in part:
-                                                    if isThink:
-                                                        text += "</think>"
-                                                        isThink = False
                                                     text += part['text']
                                                 if 'inlineData' in part:
                                                     inline_data = part['inlineData']
@@ -394,7 +388,9 @@ class GeminiClient:
                                                         logger.info(f"图片上传耗时: {upload_duration:.2f}秒")
                                                         logger.info(f"图片的访问地址: {image_url}")
                                                         text += f"![]({image_url})"
-                                        if text:
+                                        if reasoning_content:
+                                            await callback(Thought(value=reasoning_content))
+                                        elif text:
                                             await callback(text)
                                         
                                 if candidate.get("finishReason") and candidate.get("finishReason") != "STOP":
