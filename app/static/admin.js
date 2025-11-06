@@ -499,6 +499,7 @@ function renderGeminiKeys() {
                     <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
                     <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
                     <button type="button" class="action-btn check-btn" onclick="checkKeyAvailability('${key}')">🔍</button>
+                    <button type="button" class="action-btn check-btn" onclick="checkSingleKeyRealValidity('${key}')">🧪</button>
                 </td>
             </tr>
         `;
@@ -924,6 +925,14 @@ async function checkKeyRealValidity(key, model) {
     }
 }
 
+async function checkSingleKeyRealValidity(key) {
+    const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
+    if (!model) {
+        return;
+    }
+    await checkKeyRealValidity(key, model);
+}
+ 
 async function showDeleteInvalidKeysModal() {
     if (invalidKeys.length === 0) {
         alert('没有检测到无效的密钥。');
