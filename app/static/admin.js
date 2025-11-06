@@ -124,7 +124,16 @@ function showConfirm(title, text) {
     });
 }
 
-function showPrompt(title, text, defaultValue = '', inputType = 'text') {
+function showPrompt(options) {
+    const {
+        title,
+        text,
+        defaultValue = '',
+        inputType = 'text',
+        confirmText = '确认',
+        cancelText = '取消'
+    } = options;
+
     return new Promise(resolve => {
         resolvePromise = resolve;
         modalTitle.textContent = title;
@@ -139,7 +148,8 @@ function showPrompt(title, text, defaultValue = '', inputType = 'text') {
         modalInput.value = defaultValue;
         modalInput.type = inputType;
         modalInput.focus();
-
+        modalConfirmBtn.textContent = confirmText;
+        modalCancelBtn.textContent = cancelText;
         modalConfirmBtn.onclick = () => {
             if (resolvePromise) resolve(modalInput.value);
             hideModal();
@@ -317,7 +327,7 @@ function handleApiResponse(response) {
 }
 
 async function saveGroupSettings(groupContentElement) {
-    const password = await showPrompt("确认更改", "请输入管理员密码以保存更改:", '', 'password');
+    const password = await showPrompt({title: "确认更改", text: "请输入管理员密码以保存更改:", defaultValue: '', inputType: 'password'});
     if (password === null) {
         return;
     }
@@ -547,7 +557,7 @@ function checkGeminiKeysModified() {
 
 // 显示添加单个Gemini密钥的模态框
 async function showAddGeminiKeyModal() {
-    const newKey = await showPrompt("添加新密钥", "请输入新的 Gemini API 密钥:");
+    const newKey = await showPrompt({title: "添加新密钥", text: "请输入新的 Gemini API 密钥:"});
     if (newKey && newKey.trim()) {
         if (currentGeminiKeys.includes(newKey.trim())) {
             alert('该密钥已存在。');
@@ -572,6 +582,7 @@ async function showBulkAddGeminiKeysModal() {
     };
     switchInput.addEventListener('change', updateConfirmButtonText);
     
+    switchInput.checked = false;
     // Set initial button text
     updateConfirmButtonText();
 
@@ -650,7 +661,7 @@ async function saveGeminiKeysToServer() {
         return;
     }
     
-    const password = await showPrompt("确认保存", "为确认更改，请输入管理员密码:", '', 'password');
+    const password = await showPrompt({title: "确认保存", text: "为确认更改，请输入管理员密码:", defaultValue: '', inputType: 'password'});
     if (password === null) {
         return;
     }
@@ -695,7 +706,7 @@ async function addGeminiKey() {
 }
 
 async function editGeminiKey(oldKey) {
-    const newKey = await showPrompt("编辑密钥", "请编辑 Gemini API 密钥:", oldKey);
+    const newKey = await showPrompt({title: "编辑密钥", text: "请编辑 Gemini API 密钥:", defaultValue: oldKey});
     if (newKey && newKey.trim() && newKey.trim() !== oldKey) {
         const index = currentGeminiKeys.indexOf(oldKey);
         if (index !== -1) {
@@ -720,7 +731,7 @@ async function deleteGeminiKey(keyToDelete) {
 }
 
 async function saveGeminiKeys() {
-    const password = await showPrompt("确认操作", "为确认更改，请输入管理员密码:", '', 'password');
+    const password = await showPrompt({title: "确认操作", text: "为确认更改，请输入管理员密码:", defaultValue: '', inputType: 'password'});
     if (password === null) {
         // 用户取消输入密码，不需要任何操作，因为更改尚未应用
         return;
@@ -835,7 +846,7 @@ async function checkAllKeysRealValidity() {
     checkTargetContainer.style.display = 'block'; // Manually show the container
 
     modalConfirmBtn.textContent = '确认';
-    const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
+    const model = await showPrompt({title: "请输入模型名称", text: "请输入要用于测试的模型的名称:", defaultValue: "gemini-2.0-flash"});
     
     checkTargetContainer.style.display = 'none'; // Manually hide it after
 
@@ -926,7 +937,7 @@ async function checkKeyRealValidity(key, model) {
 }
 
 async function checkSingleKeyRealValidity(key) {
-    const model = await showPrompt("请输入模型名称", "请输入要用于测试的模型的名称:", "gemini-2.0-flash");
+    const model = await showPrompt({title: "请输入模型名称", text: "请输入要用于测试的模型的名称:", defaultValue: "gemini-2.0-flash"});
     if (!model) {
         return;
     }
