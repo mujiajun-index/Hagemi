@@ -157,6 +157,7 @@ button:hover {
     padding: 1em;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
 }
 
 #api-mappings-table tbody tr:last-child td,
@@ -182,8 +183,11 @@ button:hover {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 5px;
+    padding: 2px;
     font-size: 1.2em;
+    display: inline-block;
+    width: auto;
+    margin: 0 2px;
 }
 .edit-btn { color: #4a90e2; }
 .delete-btn { color: #e74c3c; }

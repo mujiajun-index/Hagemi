@@ -496,10 +496,10 @@ function renderGeminiKeys() {
                 <td>${index + 1}</td>
                 <td id="key-cell-${safeKeyId}" class="truncate-text" title="点击复制: ${key}" onclick="copyTextToClipboard(this, '${key}')">${key}<br><span id="key-status-${safeKeyId}" class="key-status-text"></span></td>
                 <td>
-                    <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
-                    <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
                     <button type="button" class="action-btn check-btn" onclick="checkKeyAvailability('${key}')">🔍</button>
                     <button type="button" class="action-btn check-btn" onclick="checkSingleKeyRealValidity('${key}')">🧪</button>
+                    <button type="button" class="action-btn edit-btn" onclick="editGeminiKey('${key}')">✏️</button>
+                    <button type="button" class="action-btn delete-btn" onclick="deleteGeminiKey('${key}')">🗑️</button>
                 </td>
             </tr>
         `;
