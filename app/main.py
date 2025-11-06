@@ -106,7 +106,7 @@ MAX_RETRY_DELAY = 16
 VERSION = os.environ.get('VERSION', "1.0.0")
 
 #Gemini API返回空响应时的最大重试次数
-GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
+GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '0'))
 GEMINI_503_RETRIES = int(os.environ.get('GEMINI_503_RETRIES', '3'))
 GEMINI_429_RETRIES = int(os.environ.get('GEMINI_429_RETRIES', '3'))
 GEMINI_RETRY_DELAY = float(os.environ.get('GEMINI_RETRY_DELAY', '1'))
@@ -177,7 +177,7 @@ async def check_keys():
     for key in get_gemini_api_keys():
         is_valid = await test_api_key(key)
         status_msg = "有效" if is_valid else "无效"
-        log_msg = format_log_message('INFO', f"API Key {key[:10]}... {status_msg}.")
+        log_msg = format_log_message('INFO', f"API Key {key[:10]}...{key[-4:]} {status_msg}.")
         logger.info(log_msg)
         if is_valid:
             available_keys.append(key)
@@ -197,7 +197,7 @@ async def reload_keys():
     if available_keys:
         key_manager.api_keys = available_keys
         key_manager._reset_key_stack()
-        key_manager.show_all_keys()
+        # key_manager.show_all_keys()
         log_msg = format_log_message('INFO', f"可用 API 密钥数量：{len(key_manager.api_keys)}")
         logger.info(log_msg)
         log_msg = format_log_message('INFO', f"最大重试次数设置为：{len(key_manager.api_keys)}")
@@ -787,7 +787,7 @@ async def get_env_vars(_: None = Depends(verify_jwt_token)):
             "EXTRA_MODELS": {"label": "自定义模型列表", "value": os.environ.get("EXTRA_MODELS", ""), "description": "自定义模型列表，多个请用逗号隔开。"},
             "WHITELIST_IPS": {"label": "IP白名单", "value": os.environ.get("WHITELIST_IPS", ""), "description": "允许直接访问的IP地址，多个请用逗号隔开。"},
             "BLACKLIST_IPS": {"label": "IP黑名单", "value": os.environ.get("BLACKLIST_IPS", ""), "description": "禁止访问的IP地址，多个请用逗号隔开。"},
-            "GEMINI_EMPTY_RESPONSE_RETRIES": {"label": "Gemini空响应重试次数", "value": os.environ.get("GEMINI_EMPTY_RESPONSE_RETRIES", "3"), "description": "Gemini API返回空响应时的最大重试次数。"},
+            "GEMINI_EMPTY_RESPONSE_RETRIES": {"label": "Gemini空响应重试次数", "value": os.environ.get("GEMINI_EMPTY_RESPONSE_RETRIES", "0"), "description": "Gemini API返回空响应时的最大重试次数。"},
             "GEMINI_503_RETRIES": {"label": "Gemini服务503异常重试次数", "value": os.environ.get("GEMINI_503_RETRIES", "3"), "description": "Gemini API当遇到503服务不可用错误时的最大重试次数。"},
             "GEMINI_429_RETRIES": {"label": "Gemini服务429异常重试次数", "value": os.environ.get("GEMINI_429_RETRIES", "3"), "description": "Gemini API当遇到429密钥配额已用尽或其他原因错误时的最大重试次数。"},
             "GEMINI_RETRY_DELAY": {"label": "Gemini服务异常重试间隔时间(秒)", "value": os.environ.get("GEMINI_RETRY_DELAY", "1"), "description": "Gemini API当遇到异常时重试的间隔时间（秒）。"},
@@ -891,7 +891,7 @@ async def reload_config():
     authorized_ips = set(ip.strip() for ip in WHITELIST_IPS if ip.strip())
     BLACKLIST_IPS = os.environ.get("BLACKLIST_IPS", "").split(",")
     blacklisted_ips = set(ip.strip() for ip in BLACKLIST_IPS if ip.strip())
-    GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '3'))
+    GEMINI_EMPTY_RESPONSE_RETRIES = int(os.environ.get('GEMINI_EMPTY_RESPONSE_RETRIES', '0'))
     GEMINI_503_RETRIES = int(os.environ.get('GEMINI_503_RETRIES', '3'))
     GEMINI_429_RETRIES = int(os.environ.get('GEMINI_429_RETRIES', '3'))
     GEMINI_RETRY_DELAY = float(os.environ.get('GEMINI_RETRY_DELAY', '1'))
