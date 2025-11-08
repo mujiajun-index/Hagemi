@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="static/admin.css">
 </head>
 <body>
+    <a href="/" class="back-to-home" title="返回首页">⬅️</a>
     <div class="container">
         <h1>⚙️系统设置</h1>
         <form id="settings-form">
@@ -36,18 +37,20 @@
                      </div>
                  </div>
                  
-                 <table id="gemini-keys-table">
-                     <thead>
-                         <tr>
-                             <th style="width: 10%;">序号</th>
-                             <th>API 密钥</th>
-                             <th style="width: 20%;">操作</th>
-                         </tr>
-                     </thead>
-                     <tbody>
-                         <!-- Gemini Keys will be loaded here -->
-                     </tbody>
-                 </table>
+                 <div class="table-wrapper">
+                     <table id="gemini-keys-table">
+                         <thead>
+                             <tr>
+                                 <th style="width: 10%;">序号</th>
+                                 <th>API 密钥</th>
+                                 <th style="width: 20%;">操作</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             <!-- Gemini Keys will be loaded here -->
+                         </tbody>
+                     </table>
+                 </div>
              </div>
           </div>
 
@@ -72,23 +75,25 @@
                       </div>
                   </div>
                   
-                  <table id="access-keys-table">
-                      <thead>
-                          <tr>
-                              <th style="min-width: 30px;">序号</th>
-                              <th>名称</th>
-                              <th>密钥</th>
-                              <th>使用限制</th>
-                              <th>过期时间</th>
-                              <th id="status-header" style="cursor: pointer;" onclick="filterAccessKeys()">状态❇️</th>
-                              <th style="min-width: 60px;">每日重置</th>
-                              <th style="min-width: 60px;">操作<span onclick="loadAccessKeys();alert('刷新成功！')" style="cursor: pointer;">🔄</span></th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <!-- Access Keys will be loaded here -->
-                      </tbody>
-                  </table>
+                  <div class="table-wrapper">
+                      <table id="access-keys-table">
+                          <thead>
+                              <tr>
+                                  <th style="min-width: 30px;">序号</th>
+                                  <th>名称</th>
+                                  <th>密钥</th>
+                                  <th>使用限制</th>
+                                  <th>过期时间</th>
+                                  <th id="status-header" style="cursor: pointer;" onclick="filterAccessKeys()">状态❇️</th>
+                                  <th style="min-width: 60px;">每日重置</th>
+                                  <th style="min-width: 60px;">操作<span onclick="loadAccessKeys();alert('刷新成功！')" style="cursor: pointer;">🔄</span></th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              <!-- Access Keys will be loaded here -->
+                          </tbody>
+                      </table>
+                  </div>
               </div>
           </div>
 
@@ -98,23 +103,25 @@
                   <span class="toggle-icon">▶</span>
               </div>
               <div class="category-content" id="api-mappings-content">
-                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px;">
+                  <div style="margin-bottom: 1em; padding: 1em; background-color: #f0f4f8; border-radius: 4px; overflow-wrap: break-word;">
                       <p><strong>功能描述:</strong> 此功能允许您将特定的 API 请求前缀代理到不同的目标地址。例如，您可以将所有发往 <code>/openai</code> 的请求转发到 <code>https://api.openai.com</code>。</p>
                       <p><strong>使用示例:</strong> 直接访问本项目地址 <code>http://localhost:7860/openai/v1/chat/completions</code> 即可将请求代理到 <code>https://api.openai.com/v1/chat/completions</code></p>
                   </div>
-                  <table id="api-mappings-table">
-                      <thead>
-                          <tr>
-                              <th style="width: 10%;">序号</th>
-                              <th>请求前缀</th>
-                              <th>目标地址</th>
-                              <th style="width: 20%;">操作</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <!-- Mappings will be loaded here -->
-                      </tbody>
-                  </table>
+                  <div class="table-wrapper">
+                      <table id="api-mappings-table">
+                          <thead>
+                              <tr>
+                                  <th style="width: 10%;">序号</th>
+                                  <th>请求前缀</th>
+                                  <th>目标地址</th>
+                                  <th style="width: 20%;">操作</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              <!-- Mappings will be loaded here -->
+                          </tbody>
+                      </table>
+                  </div>
                   <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
               </div>
           </div>

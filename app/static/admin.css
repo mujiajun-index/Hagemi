@@ -10,7 +10,7 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     margin: 0;
-    padding: 2em;
+    padding: 2em 0;
     background-color: var(--background-color);
     color: var(--text-color);
 }
@@ -142,19 +142,22 @@ button:hover {
 .radio-label .setting-description {
     margin-left: 0.5em;
 }
-#api-mappings-table, #gemini-keys-table, #access-keys-table {
-    width: 100%;
-    border-collapse: collapse;
+.table-wrapper {
     margin-top: 1em;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    overflow: hidden;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow-x: auto;
+}
+
+#api-mappings-table, #gemini-keys-table, #access-keys-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 #api-mappings-table th, #api-mappings-table td,
 #gemini-keys-table th, #gemini-keys-table td,
 #access-keys-table th, #access-keys-table td {
-    padding: 1em;
+    padding: 10px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
     white-space: nowrap;
@@ -761,4 +764,24 @@ input:checked + .slider:before {
     font-family: monospace;
     resize: vertical;
     min-height: 120px;
+}
+.back-to-home {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--primary-color);
+    text-decoration: none;
+    padding: 5px 5px;
+    background-color: var(--card-background);
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.back-to-home:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
 }
