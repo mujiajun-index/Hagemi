@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => {
             if (response.status === 401) {
                 alert('会话已过期，请重新登录');
+                localStorage.removeItem('admin-token');
                 window.location.href = '/';
                 throw new Error('Unauthorized');
             }

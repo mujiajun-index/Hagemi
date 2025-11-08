@@ -760,11 +760,6 @@ async def root(request: Request):
         "index.html",
         {
             "request": request,
-            "len": len,
-            "key_manager": key_manager,
-            "GeminiClient": GeminiClient,
-            "MAX_REQUESTS_PER_MINUTE": MAX_REQUESTS_PER_MINUTE,
-            "MAX_REQUESTS_PER_DAY_PER_IP": MAX_REQUESTS_PER_DAY_PER_IP,
             "VERSION": VERSION,
         },
     )
@@ -881,6 +876,16 @@ async def login_for_access_token(request: Request):
     log_msg = format_log_message('INFO', "管理员登录成功", extra={'ip': client_ip, 'request_type': 'admin_login'})
     logger.info(log_msg)
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/admin/status", dependencies=[Depends(verify_jwt_token)])
+async def get_admin_status():
+    return {
+        "api_keys_count": len(key_manager.api_keys),
+        "available_models_count": len(GeminiClient.AVAILABLE_MODELS),
+        "max_requests_per_minute": MAX_REQUESTS_PER_MINUTE,
+        "max_requests_per_day_per_ip": MAX_REQUESTS_PER_DAY_PER_IP,
+        "max_retries": len(key_manager.api_keys)
+    }
 
 async def reload_config():
     global MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP, WHITELIST_IPS, authorized_ips, BLACKLIST_IPS, blacklisted_ips, GEMINI_EMPTY_RESPONSE_RETRIES, GEMINI_503_RETRIES, GEMINI_429_RETRIES, GEMINI_RETRY_DELAY, global_image_storage, key_manager
