@@ -23,6 +23,7 @@ from dotenv import load_dotenv, set_key
 from jose import JWTError, jwt
 from datetime import timedelta
 import requests
+import psutil
 # 加载.env文件中的环境变量
 load_dotenv()
 
@@ -772,6 +773,10 @@ async def admin_page():
 async def logs_page(request: Request):
     return templates.TemplateResponse("logs.html", {"request": request})
 
+@app.get("/sysinfo", response_class=HTMLResponse)
+async def sysinfo_page(request: Request):
+    return templates.TemplateResponse("sysinfo.html", {"request": request})
+
 @app.get("/admin/env")
 async def get_env_vars(_: None = Depends(verify_jwt_token)):
     env_vars_config = {
@@ -1216,3 +1221,48 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
             await asyncio.sleep(0.1)  # 每0.1秒检查一次
     except WebSocketDisconnect:
         print("Client disconnected")
+
+@app.websocket("/ws/sysinfo")
+async def websocket_sysinfo(websocket: WebSocket, token: str = None):
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await websocket.accept()
+
+    try:
+        last_net_info = psutil.net_io_counters()
+        while True:
+            # psutil.cpu_percent(interval=1) creates a 1-second blocking delay
+            cpu_percent = psutil.cpu_percent(interval=1)
+            
+            memory_info = psutil.virtual_memory()
+            disk_info = psutil.disk_usage('/')
+            current_net_info = psutil.net_io_counters()
+
+            # Calculate the difference over the 1-second interval
+            net_sent_speed = current_net_info.bytes_sent - last_net_info.bytes_sent
+            net_received_speed = current_net_info.bytes_recv - last_net_info.bytes_recv
+            
+            # Update for the next iteration
+            last_net_info = current_net_info
+
+            sys_info = {
+                "cpu_percent": cpu_percent,
+                "memory_percent": memory_info.percent,
+                "memory_used": f"{memory_info.used / 1e9:.2f}",
+                "memory_total": f"{memory_info.total / 1e9:.2f}",
+                "disk_percent": disk_info.percent,
+                "disk_used": f"{disk_info.used / 1e9:.2f}",
+                "disk_total": f"{disk_info.total / 1e9:.2f}",
+                "net_sent": f"{net_sent_speed / 1e3:.2f}",
+                "net_received": f"{net_received_speed / 1e3:.2f}",
+            }
+            await websocket.send_json(sys_info)
+    except WebSocketDisconnect:
+        print("Sysinfo client disconnected")

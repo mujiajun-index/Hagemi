@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时系统信息</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 2em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #4a90e2;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 0.5em;
+            margin-bottom: 1em;
+        }
+        .container {
+            width: 80%;
+            max-width: 800px;
+            background-color: #2c2c2c;
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+        .metric {
+            margin-bottom: 1.5em;
+        }
+        .metric-label {
+            font-size: 1.2em;
+            margin-bottom: 0.5em;
+            display: flex;
+            justify-content: space-between;
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #444;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 20px;
+            background-color: #4caf50;
+            width: 0%;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
+        }
+        .network-info {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 1em;
+        }
+        .network-info div {
+            background-color: #333;
+            padding: 0.8em;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>💻实时系统信息</h1>
+    <div class="container">
+        <div class="metric">
+            <div class="metric-label"><span>CPU 使用率</span><span id="cpu-text">0%</span></div>
+            <div class="progress-bar-container">
+                <div id="cpu-bar" class="progress-bar"></div>
+            </div>
+        </div>
+        <div class="metric">
+            <div class="metric-label"><span>内存使用率</span><span id="mem-text">0%</span></div>
+            <div class="progress-bar-container">
+                <div id="mem-bar" class="progress-bar"></div>
+            </div>
+        </div>
+        <div class="metric">
+            <div class="metric-label"><span>磁盘使用率</span><span id="disk-text">0%</span></div>
+            <div class="progress-bar-container">
+                <div id="disk-bar" class="progress-bar"></div>
+            </div>
+        </div>
+        <div class="network-info">
+            <div>上传: <span id="net-sent">0.00 KB</span></div>
+            <div>下载: <span id="net-received">0.00 KB</span></div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('admin-token');
+
+        if (!token) {
+            document.body.innerHTML = '<h1>错误：未找到认证令牌，请先登录管理页面。</h1>';
+        } else {
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const socket = new WebSocket(`${protocol}://${window.location.host}/ws/sysinfo?token=${token}`);
+
+            const cpuBar = document.getElementById('cpu-bar');
+            const cpuText = document.getElementById('cpu-text');
+            const memBar = document.getElementById('mem-bar');
+            const memText = document.getElementById('mem-text');
+            const diskBar = document.getElementById('disk-bar');
+            const diskText = document.getElementById('disk-text');
+            const netSent = document.getElementById('net-sent');
+            const netReceived = document.getElementById('net-received');
+
+            function updateProgressBar(bar, textElement, percentage, text) {
+                bar.style.width = percentage + '%';
+                textElement.textContent = text;
+                if (percentage > 85) {
+                    bar.style.backgroundColor = '#f44336'; // Red
+                } else if (percentage > 60) {
+                    bar.style.backgroundColor = '#ff9800'; // Orange
+                } else {
+                    bar.style.backgroundColor = '#4caf50'; // Green
+                }
+            }
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                updateProgressBar(cpuBar, cpuText, data.cpu_percent, data.cpu_percent.toFixed(1) + '%');
+                updateProgressBar(memBar, memText, data.memory_percent, `${data.memory_percent.toFixed(1)}% (${data.memory_used} GB / ${data.memory_total} GB)`);
+                updateProgressBar(diskBar, diskText, data.disk_percent, `${data.disk_percent.toFixed(1)}% (${data.disk_used} GB / ${data.disk_total} GB)`);
+
+                netSent.textContent = `${data.net_sent} KB`;
+                netReceived.textContent = `${data.net_received} KB`;
+            };
+
+            socket.onopen = function(event) {
+                console.log("WebSocket connection opened for sysinfo.");
+            };
+
+            socket.onclose = function(event) {
+                console.log("WebSocket connection closed for sysinfo.");
+                document.body.innerHTML = '<h1>与服务器的连接已断开。</h1>';
+            };
+
+            socket.onerror = function(error) {
+                console.error("WebSocket error:", error);
+                document.body.innerHTML = '<h1>WebSocket 连接出错。</h1>';
+            };
+        }
+    </script>
+</body>
+</html>
