@@ -165,7 +165,7 @@ def switch_api_key():
     key = key_manager.get_available_key() # get_available_key 会处理栈的逻辑
     if key:
         current_api_key = key
-        log_msg = format_log_message('INFO', f"API key 替换为 → {current_api_key[:8]}...", extra={'key': current_api_key[:8], 'request_type': 'switch_key'})
+        log_msg = format_log_message('INFO', f"API key 替换为 → {current_api_key[:10]}...", extra={'key': current_api_key[:10], 'request_type': 'switch_key'})
         logger.info(log_msg)
     else:
         log_msg = format_log_message('ERROR', "API key 替换失败，所有API key都已尝试，请重新配置或稍后重试", extra={'key': 'N/A', 'request_type': 'switch_key', 'status_code': 'N/A'})
@@ -399,7 +399,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
             log_msg_no_key = format_log_message('WARNING', "没有可用的 API 密钥，跳过本次尝试", extra={'ip': client_ip, 'request_type': request_type, 'model': chat_request.model, 'status_code': 'N/A'})
             logger.warning(log_msg_no_key)
             break  # 如果没有可用密钥，跳出循环
-        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': '200', 'error_message': ''}
+        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': '200', 'error_message': ''}
         log_message_text = f"正在请求中"
         if token and token.startswith("sk-"):
             log_message_text += f", 密钥: {token[:10]}..."
@@ -429,7 +429,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                         callback
                                     )
                                     if not response_wrapper.text and streamAttempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
-                                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 504}
+                                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 504}
                                         handle_gemini_error(GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
@@ -442,14 +442,14 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                                 except GeminiAPIError as e:
                                     status_code = e.status_code
                                     if status_code == 503 and streamAttempt < GEMINI_503_RETRIES + 1:
-                                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
+                                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
                                         handle_gemini_error(GeminiAPIError("Gemini返回503错误,模型超载",503,extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
                                         await asyncio.sleep(GEMINI_RETRY_DELAY)
                                         continue
                                     elif status_code == 429 and streamAttempt < GEMINI_429_RETRIES + 1:
-                                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 429}
+                                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 429}
                                         handle_gemini_error(GeminiAPIError("Gemini返回429错误,密钥配额已用尽或其他原因", 429, extra_log), current_api_key, key_manager, client_ip)
                                         switch_api_key()
                                         gemini_client = GeminiClient(current_api_key, storage=global_image_storage)
@@ -513,7 +513,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             total_tokens = 0
 
                         extra_log_success_stream = {
-                            'ip': client_ip, 'key': current_api_key[:8], 'request_type': 'stream',
+                            'ip': client_ip, 'key': current_api_key[:10], 'request_type': 'stream',
                             'model': chat_request.model, 'status_code': 200, 'duration_ms': round(duration * 1000),
                             'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': total_tokens
                         }
@@ -547,7 +547,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         yield "data: [DONE]\n\n"
 
                     except asyncio.CancelledError:
-                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': 'stream', 'model': chat_request.model, 'error_message': '客户端已断开连接'}
+                        extra_log_cancel = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': 'stream', 'model': chat_request.model, 'error_message': '客户端已断开连接'}
                         log_msg = format_log_message('INFO', "客户端连接已中断", extra=extra_log_cancel)
                         logger.info(log_msg)
                     except Exception as e:
@@ -563,7 +563,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         response_content = await asyncio.to_thread(gemini_client.complete_chat, chat_request, contents, safety_settings_g2 if 'gemini-2.0-flash-exp' in chat_request.model else safety_settings, system_instruction)
                         return response_content
                     except asyncio.CancelledError:
-                        extra_log_gemini_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '客户端断开导致API调用取消'}
+                        extra_log_gemini_cancel = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'error_message': '客户端断开导致API调用取消'}
                         log_msg = format_log_message('INFO', "API调用因客户端断开而取消", extra=extra_log_gemini_cancel)
                         logger.info(log_msg)
                         raise
@@ -571,7 +571,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                 async def check_client_disconnect():
                     while True:
                         if await http_request.is_disconnected():
-                            extra_log_client_disconnect = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': '检测到客户端断开连接'}
+                            extra_log_client_disconnect = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'error_message': '检测到客户端断开连接'}
                             log_msg = format_log_message('INFO', "客户端连接已中断，正在取消API请求", extra=extra_log_client_disconnect)
                             logger.info(log_msg)
                             return True
@@ -591,7 +591,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         try:
                             await gemini_task
                         except asyncio.CancelledError:
-                            extra_log_gemini_task_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message': 'API任务已终止'}
+                            extra_log_gemini_task_cancel = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'error_message': 'API任务已终止'}
                             log_msg = format_log_message('INFO', "API任务已成功取消", extra=extra_log_gemini_task_cancel)
                             logger.info(log_msg)
                         # 直接抛出异常中断循环
@@ -605,7 +605,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                             pass
                         response_content = gemini_task.result()
                         response_text_len = len(response_content.text)
-                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
+                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 200}
                         if response_text_len == 0 and attempt < GEMINI_EMPTY_RESPONSE_RETRIES+1:
                             extra_log['status_code'] = 504
                             raise GeminiServiceUnavailableError("Gemini返回内容为空",504,extra_log)
@@ -643,17 +643,17 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                         return response
 
                 except asyncio.CancelledError:
-                    extra_log_request_cancel = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'error_message':"请求被取消" }
+                    extra_log_request_cancel = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'error_message':"请求被取消" }
                     log_msg = format_log_message('INFO', "请求取消", extra=extra_log_request_cancel)
                     logger.info(log_msg)
                     raise
                 except requests.exceptions.HTTPError as e:
                     status_code = e.response.status_code
                     if status_code == 503 and attempt < GEMINI_503_RETRIES + 1:
-                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
+                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 503}
                         raise GeminiAPIError("Gemini返回503错误,模型超载",503,extra_log)
                     elif status_code == 429 and attempt < GEMINI_429_RETRIES + 1:
-                        extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model, 'status_code': 429}
+                        extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model, 'status_code': 429}
                         raise GeminiAPIError("Gemini返回429错误,密钥配额已用尽或其他原因", 429, extra_log)
                     else:
                         raise e
@@ -668,7 +668,7 @@ async def process_request(chat_request: ChatCompletionRequest, http_request: Req
                 raise
         except HTTPException as e:
             if e.status_code == status.HTTP_408_REQUEST_TIMEOUT:
-                extra_log = {'ip': client_ip, 'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model,
+                extra_log = {'ip': client_ip, 'key': current_api_key[:10], 'request_type': request_type, 'model': chat_request.model,
                             'status_code': 408, 'error_message': '客户端连接中断'}
                 log_msg = format_log_message('ERROR', "客户端连接中断，终止后续重试", extra=extra_log)
                 logger.error(log_msg)
@@ -1135,7 +1135,7 @@ async def create_key(request: Request, key_create: AccessKeyCreate):
         save_access_keys()
     
     client_ip = get_client_ip(request)
-    log_msg = format_log_message('INFO', f"访问密钥已创建: {new_key.key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_create_key'})
+    log_msg = format_log_message('INFO', f"访问密钥已创建: {new_key.key[:10]}...", extra={'ip': client_ip, 'request_type': 'admin_create_key'})
     logger.info(log_msg)
     
     return JSONResponse(content={"message": "密钥创建成功"})
@@ -1158,7 +1158,7 @@ async def update_key(request: Request, key: str, key_update: AccessKey):
         save_access_keys()
         
     client_ip = get_client_ip(request)
-    log_msg = format_log_message('INFO', f"访问密钥已更新: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_update_key'})
+    log_msg = format_log_message('INFO', f"访问密钥已更新: {key[:10]}...", extra={'ip': client_ip, 'request_type': 'admin_update_key'})
     logger.info(log_msg)
     
     return JSONResponse(content={"message": "密钥更新成功"})
@@ -1173,7 +1173,7 @@ async def delete_key(request: Request, key: str):
         save_access_keys()
         
     client_ip = get_client_ip(request)
-    log_msg = format_log_message('INFO', f"访问密钥已删除: {key[:8]}...", extra={'ip': client_ip, 'request_type': 'admin_delete_key'})
+    log_msg = format_log_message('INFO', f"访问密钥已删除: {key[:10]}...", extra={'ip': client_ip, 'request_type': 'admin_delete_key'})
     logger.info(log_msg)
     
     return JSONResponse(content={"message": "密钥删除成功"})

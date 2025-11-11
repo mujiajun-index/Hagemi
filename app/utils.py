@@ -200,11 +200,11 @@ class APIKeyManager:
         log_msg = format_log_message('INFO', f"当前可用API key个数: {len(self.api_keys)} ")
         logger.info(log_msg)
         for i, api_key in enumerate(self.api_keys):
-            log_msg = format_log_message('INFO', f"API Key{i}: {api_key[:8]}...{api_key[-3:]}")
+            log_msg = format_log_message('INFO', f"API Key{i}: {api_key[:10]}...{api_key[-3:]}")
             logger.info(log_msg)
 
     # def blacklist_key(self, key):
-    #     log_msg = format_log_message('WARNING', f"{key[:8]} → 暂时禁用 {self.api_key_blacklist_duration} 秒")
+    #     log_msg = format_log_message('WARNING', f"{key[:10]} → 暂时禁用 {self.api_key_blacklist_duration} 秒")
     #     logger.warning(log_msg)
     #     self.api_key_blacklist.add(key)
     #     self.scheduler.add_job(lambda: self.api_key_blacklist.discard(key), 'date',
@@ -234,29 +234,29 @@ def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") ->
                 if 'error' in error_data:
                     if error_data['error'].get('code') == "invalid_argument":
                         error_message = "无效的 API 密钥"
-                        extra_log_invalid_key = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-                        log_msg = format_log_message('ERROR', f"{current_api_key[:8]} ... {current_api_key[-3:]} → 无效，可能已过期或被删除", extra=extra_log_invalid_key)
+                        extra_log_invalid_key = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+                        log_msg = format_log_message('ERROR', f"{current_api_key[:10]} ... {current_api_key[-3:]} → 无效，可能已过期或被删除", extra=extra_log_invalid_key)
                         logger.error(log_msg)
                         # key_manager.blacklist_key(current_api_key)
                         
                         return error_message
                     error_message = error_data['error'].get(
                         'message', 'Bad Request')
-                    extra_log_400 = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
+                    extra_log_400 = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
                     log_msg = format_log_message('WARNING', f"400 错误请求: {error_message}", extra=extra_log_400)
                     logger.warning(log_msg)
                     return f"400 错误请求: {error_message}"
             except ValueError:
                 error_message = "400 错误请求：响应不是有效的JSON格式"
-                extra_log_400_json = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
+                extra_log_400_json = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
                 log_msg = format_log_message('WARNING', error_message, extra=extra_log_400_json)
                 logger.warning(log_msg)
                 return error_message
 
         elif status_code == 429:
             error_message = "API 密钥配额已用尽或其他原因"
-            extra_log_429 = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-            log_msg = format_log_message('WARNING', f"{current_api_key[:8]} ... {current_api_key[-3:]} → 429 官方资源耗尽或其他原因", extra=extra_log_429)
+            extra_log_429 = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+            log_msg = format_log_message('WARNING', f"{current_api_key[:10]} ... {current_api_key[-3:]} → 429 官方资源耗尽或其他原因", extra=extra_log_429)
             logger.warning(log_msg)
             # key_manager.blacklist_key(current_api_key)
              
@@ -264,49 +264,49 @@ def handle_gemini_error(error, current_api_key, key_manager, client_ip="N/A") ->
 
         elif status_code == 403:
             error_message = "权限被拒绝"
-            extra_log_403 = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-            log_msg = format_log_message('ERROR', f"{current_api_key[:8]} ... {current_api_key[-3:]} → 403 权限被拒绝", extra=extra_log_403)
+            extra_log_403 = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+            log_msg = format_log_message('ERROR', f"{current_api_key[:10]} ... {current_api_key[-3:]} → 403 权限被拒绝", extra=extra_log_403)
             logger.error(log_msg)
             # key_manager.blacklist_key(current_api_key)
             
             return error_message
         elif status_code == 500:
             error_message = "服务器内部错误"
-            extra_log_500 = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-            log_msg = format_log_message('WARNING', f"{current_api_key[:8]} ... {current_api_key[-3:]} → 500 服务器内部错误", extra=extra_log_500)
+            extra_log_500 = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+            log_msg = format_log_message('WARNING', f"{current_api_key[:10]} ... {current_api_key[-3:]} → 500 服务器内部错误", extra=extra_log_500)
             logger.warning(log_msg)
             
             return "Gemini API 内部错误"
 
         elif status_code == 503:
             error_message = "服务不可用"
-            extra_log_503 = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-            log_msg = format_log_message('WARNING', f"{current_api_key[:8]} ... {current_api_key[-3:]} → 503 服务不可用", extra=extra_log_503)
+            extra_log_503 = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+            log_msg = format_log_message('WARNING', f"{current_api_key[:10]} ... {current_api_key[-3:]} → 503 服务不可用", extra=extra_log_503)
             logger.warning(log_msg)
             
             return "Gemini API 服务不可用"
         else:
             error_message = f"未知错误: {status_code}"
-            extra_log_other = {'ip': client_ip, 'key': current_api_key[:8], 'status_code': status_code, 'error_message': error_message}
-            log_msg = format_log_message('WARNING', f"{current_api_key[:8]} ... {current_api_key[-3:]} → {status_code} 未知错误", extra=extra_log_other)
+            extra_log_other = {'ip': client_ip, 'key': current_api_key[:10], 'status_code': status_code, 'error_message': error_message}
+            log_msg = format_log_message('WARNING', f"{current_api_key[:10]} ... {current_api_key[-3:]} → {status_code} 未知错误", extra=extra_log_other)
             logger.warning(log_msg)
             
             return f"未知错误/模型不可用: {status_code}"
 
     elif isinstance(error, requests.exceptions.ConnectionError):
         error_message = "连接错误"
-        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
+        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:10], 'status_code': 'N/A', 'error_message': error_message})
         logger.warning(log_msg)
         return error_message
 
     elif isinstance(error, requests.exceptions.Timeout):
         error_message = "请求超时"
-        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
+        log_msg = format_log_message('WARNING', error_message, extra={'ip': client_ip, 'key': current_api_key[:10], 'status_code': 'N/A', 'error_message': error_message})
         logger.warning(log_msg)
         return error_message
     else:
         error_message = f"发生未知错误: {error}"
-        log_msg = format_log_message('ERROR', error_message, extra={'ip': client_ip, 'key': current_api_key[:8], 'status_code': 'N/A', 'error_message': error_message})
+        log_msg = format_log_message('ERROR', error_message, extra={'ip': client_ip, 'key': current_api_key[:10], 'status_code': 'N/A', 'error_message': error_message})
         logger.error(log_msg)
         return error_message
 
