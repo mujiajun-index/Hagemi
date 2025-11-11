@@ -320,6 +320,20 @@ class GeminiClient:
                 "thinkingBudget": thinking_budget,
                 "includeThoughts": True
             }
+        # 有额外配置 且 思维预算为自动 -1 时 从额外配置中获取思维预算
+        if request.extra_body and thinking_budget == -1:
+            google_config = request.extra_body.get("google", {}).get("thinking_config", {})
+            # 从额外配置中获取是否包含思考
+            if "include_thoughts" in google_config:
+                data["generationConfig"]["thinkingConfig"]["includeThoughts"] = google_config["include_thoughts"]
+                if google_config["include_thoughts"] is True:
+                    #默认获取最大思维预算设置
+                    thinking_model, thinking_budget = self._parse_model_name_and_budget(f"{base_model}-maxthinking")
+                    data["generationConfig"]["thinkingConfig"]["thinkingBudget"] = thinking_budget
+            # 从额外配置中获取思维预算
+            if "thinking_budget" in google_config and google_config["thinking_budget"] is not None:
+                data["generationConfig"]["thinkingConfig"]["thinkingBudget"] = google_config["thinking_budget"]
+            
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         async with httpx.AsyncClient() as client:
             async with client.stream("POST", url, headers=headers, json=data, timeout=600) as response:
@@ -419,7 +433,7 @@ class GeminiClient:
         contents = self.filter_markdown_images(contents);
         # 此处根据 request.model 来判断是否是图片生成模型
         isImageModel = request.model in self.imageModels
-        
+
       # 默认基础模型
         base_model = request.model
 
@@ -445,8 +459,21 @@ class GeminiClient:
             data["system_instruction"] = system_instruction
         if thinking_budget is not None:
             data["generationConfig"]["thinkingConfig"] = {
-                "thinkingBudget": thinking_budget
+                "thinkingBudget": thinking_budget,
+                "includeThoughts": False
             }
+        # 有额外配置 且 思维预算为自动 -1 时 从额外配置中获取思维预算
+        if request.extra_body and thinking_budget == -1:
+            google_config = request.extra_body.get("google", {}).get("thinking_config", {})
+            # 从额外配置中获取是否包含思考
+            if "include_thoughts" in google_config:
+                if google_config["include_thoughts"] is True:
+                    #默认获取最大思维预算设置
+                    thinking_model, thinking_budget = self._parse_model_name_and_budget(f"{base_model}-maxthinking")
+                    data["generationConfig"]["thinkingConfig"]["thinkingBudget"] = thinking_budget
+            # 从额外配置中获取思维预算
+            if "thinking_budget" in google_config and google_config["thinking_budget"] is not None:
+                data["generationConfig"]["thinkingConfig"]["thinkingBudget"] = google_config["thinking_budget"]
 
         # logger.info(f"请求数据: {json.dumps(data, ensure_ascii=False)}")
         response = requests.post(url, headers=headers, json=data)
