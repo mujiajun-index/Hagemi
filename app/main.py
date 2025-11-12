@@ -1264,5 +1264,6 @@ async def websocket_sysinfo(websocket: WebSocket, token: str = None):
                 "net_received": f"{net_received_speed / 1e3:.2f}",
             }
             await websocket.send_json(sys_info)
+            await asyncio.sleep(1)  # 每1秒检查一次
     except WebSocketDisconnect:
         print("Sysinfo client disconnected")

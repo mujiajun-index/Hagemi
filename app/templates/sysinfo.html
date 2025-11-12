@@ -57,11 +57,24 @@
             display: flex;
             justify-content: space-around;
             margin-top: 1em;
+            flex-wrap: wrap;
+            gap: 1em;
+            width: 100%;
         }
-        .network-info div {
-            background-color: #333;
-            padding: 0.8em;
-            border-radius: 5px;
+        .net-card {
+            background-color: #2e2e2e;
+            padding: 0.8em 1em;
+            border-radius: 6px;
+            min-width: 240px;
+            text-align: center;
+            flex: 1 1 280px;
+            box-sizing: border-box;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+            border: 1px solid #444;
+            transition: background 0.4s ease;
+        }
+        .net-card span {
+            font-weight: 600;
         }
     </style>
 </head>
@@ -87,8 +100,8 @@
             </div>
         </div>
         <div class="network-info">
-            <div>上传: <span id="net-sent">0.00 KB</span></div>
-            <div>下载: <span id="net-received">0.00 KB</span></div>
+            <div id="net-sent-card" class="net-card">上传: <span id="net-sent">0.00 KB</span></div>
+            <div id="net-received-card" class="net-card">下载: <span id="net-received">0.00 KB</span></div>
         </div>
     </div>
 
@@ -109,6 +122,8 @@
             const diskText = document.getElementById('disk-text');
             const netSent = document.getElementById('net-sent');
             const netReceived = document.getElementById('net-received');
+            const netSentCard = document.getElementById('net-sent-card');
+            const netReceivedCard = document.getElementById('net-received-card');
 
             function updateProgressBar(bar, textElement, percentage, text) {
                 bar.style.width = percentage + '%';
@@ -122,15 +137,46 @@
                 }
             }
 
+            function formatSizeKB(valueKB) {
+                const n = Number(valueKB) || 0;
+                if (n < 1024) {
+                    return `${n.toFixed(2)} KB`;
+                } else if (n < 1024 * 1024) {
+                    return `${(n / 1024).toFixed(2)} MB`;
+                } else {
+                    return `${(n / (1024 * 1024)).toFixed(2)} GB`;
+                }
+            }
+
+            function updateNetworkCard(card, textElement, valueKB) {
+                const n = Number(valueKB) || 0;
+                let maxKB = 1024;
+                let color = '#4caf50';
+                if (n < 1024) {
+                    maxKB = 1024;
+                    color = '#4caf50';
+                } else if (n < 1024 * 1024) {
+                    maxKB = 1024 * 1024;
+                    color = n >= 10 * 1024 ? '#f44336' : '#ff9800';
+                } else {
+                    maxKB = 1024 * 1024;
+                    color = '#f44336';
+                }
+                const pct = Math.min(100, (n / maxKB) * 100);
+                const base = '#2e2e2e';
+                card.style.background = `linear-gradient(90deg, ${color} ${pct}%, ${base} ${pct}%)`;
+                textElement.textContent = formatSizeKB(n);
+            }
+
             socket.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 
                 updateProgressBar(cpuBar, cpuText, data.cpu_percent, data.cpu_percent.toFixed(1) + '%');
-                updateProgressBar(memBar, memText, data.memory_percent, `${data.memory_percent.toFixed(1)}% (${data.memory_used} GB / ${data.memory_total} GB)`);
-                updateProgressBar(diskBar, diskText, data.disk_percent, `${data.disk_percent.toFixed(1)}% (${data.disk_used} GB / ${data.disk_total} GB)`);
+                updateProgressBar(memBar, memText, data.memory_percent, `(${data.memory_used} GB / ${data.memory_total} GB) ${data.memory_percent.toFixed(1)}%`);
+                updateProgressBar(diskBar, diskText, data.disk_percent, `(${data.disk_used} GB / ${data.disk_total} GB) ${data.disk_percent.toFixed(1)}%`);
 
-                netSent.textContent = `${data.net_sent} KB`;
-                netReceived.textContent = `${data.net_received} KB`;
+                updateNetworkCard(netSentCard, netSent, data.net_sent);
+                updateNetworkCard(netReceivedCard, netReceived, data.net_received);
             };
 
             socket.onopen = function(event) {
