@@ -1256,13 +1256,13 @@ async def websocket_sysinfo(websocket: WebSocket, token: str = None):
             sys_info = {
                 "cpu_percent": cpu_percent,
                 "memory_percent": memory_info.percent,
-                "memory_used": f"{memory_info.used / 1e9:.2f}",
-                "memory_total": f"{memory_info.total / 1e9:.2f}",
+                "memory_used": f"{memory_info.used / (1024 ** 3):.2f}",
+                "memory_total": f"{memory_info.total / (1024 ** 3):.2f}",
                 "disk_percent": disk_info.percent,
-                "disk_used": f"{disk_info.used / 1e9:.2f}",
-                "disk_total": f"{disk_info.total / 1e9:.2f}",
-                "net_sent": f"{net_sent_speed / 1e3:.2f}",
-                "net_received": f"{net_received_speed / 1e3:.2f}",
+                "disk_used": f"{disk_info.used / (1024 ** 3):.2f}",
+                "disk_total": f"{disk_info.total / (1024 ** 3):.2f}",
+                "net_sent": f"{net_sent_speed / 1024:.2f}",
+                "net_received": f"{net_received_speed / 1024:.2f}",
             }
             await websocket.send_json(sys_info)
     except WebSocketDisconnect:
