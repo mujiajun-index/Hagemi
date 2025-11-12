@@ -1238,6 +1238,7 @@ async def websocket_sysinfo(websocket: WebSocket, token: str = None):
     try:
         last_net_info = psutil.net_io_counters()
         while True:
+            await asyncio.sleep(1)  # 每1秒检查一次
             # psutil.cpu_percent(interval=1) creates a 1-second blocking delay
             cpu_percent = psutil.cpu_percent(interval=1)
             
@@ -1264,6 +1265,5 @@ async def websocket_sysinfo(websocket: WebSocket, token: str = None):
                 "net_received": f"{net_received_speed / 1e3:.2f}",
             }
             await websocket.send_json(sys_info)
-            await asyncio.sleep(1)  # 每1秒检查一次
     except WebSocketDisconnect:
         print("Sysinfo client disconnected")
