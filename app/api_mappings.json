@@ -13,6 +13,5 @@
     "/portkey": "https://api.portkey.ai",
     "/fireworks": "https://api.fireworks.ai",
     "/openrouter": "https://openrouter.ai/api",
-    "/ashesb": "https://newapi.ashesb.com",
     "/gemini": "https://generativelanguage.googleapis.com"
 }
