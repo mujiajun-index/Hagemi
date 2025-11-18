@@ -8,7 +8,7 @@ class Message(BaseModel):
 class ChatCompletionRequest(BaseModel):
     model: str
     messages: List[Message]
-    temperature: float = 0.7
+    temperature: float = 1.0
     top_p: Optional[float] = 1.0
     n: int = 1
     stream: bool = False
