@@ -340,6 +340,25 @@ async function deleteApiMapping(prefix) {
     .finally(hideLoader);
 }
 
+async function toggleAllApiMappings(enabled) {
+    const action = enabled ? "启用" : "禁用";
+    const confirmed = await showConfirm("确认操作", `确定要${action}所有API映射吗?`);
+    if (!confirmed) return;
+
+    showLoader();
+    fetch('/admin/api_mappings/toggle_all', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ enabled: enabled })
+    })
+    .then(handleApiResponse)
+    .then(loadApiMappings)
+    .finally(hideLoader);
+}
+
 function handleApiResponse(response) {
     return response.json().then(result => {
         if (!response.ok) {

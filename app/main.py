@@ -1020,6 +1020,26 @@ async def toggle_api_mapping_status(request: Request, payload: dict = Body(...))
     
     return JSONResponse(content={"message": f"API映射 {prefix} 已成功切换为 {status}"})
 
+@app.put("/admin/api_mappings/toggle_all", dependencies=[Depends(verify_jwt_token)])
+async def toggle_all_api_mappings(request: Request, payload: dict = Body(...)):
+    mappings = get_api_mappings()
+    enabled = payload.get("enabled")
+
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="请求参数 'enabled' 必须是一个布尔值")
+
+    for prefix in mappings:
+        mappings[prefix]["enabled"] = enabled
+    
+    save_api_mappings()
+    
+    client_ip = get_client_ip(request)
+    status = "启用" if enabled else "禁用"
+    log_msg = format_log_message('INFO', f"所有API映射已批量切换为 {status}", extra={'ip': client_ip, 'request_type': 'admin_toggle_all_mappings'})
+    logger.info(log_msg)
+    
+    return JSONResponse(content={"message": f"所有API映射已成功批量切换为 {status}"})
+
 @app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_jwt_token)])
 async def delete_api_mapping(request: Request, prefix: str):
     mappings = get_api_mappings()

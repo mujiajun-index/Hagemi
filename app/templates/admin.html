@@ -107,6 +107,13 @@
                       <p><strong>功能描述:</strong> 此功能允许您将特定的 API 请求前缀代理到不同的目标地址。例如，您可以将所有发往 <code>/openai</code> 的请求转发到 <code>https://api.openai.com</code>。</p>
                       <p><strong>使用示例:</strong> 直接访问本项目地址 <code>http://localhost:7860/openai/v1/chat/completions</code> 即可将请求代理到 <code>https://api.openai.com/v1/chat/completions</code></p>
                   </div>
+                  <div class="keys-controls">
+                      <div class="keys-actions">
+                           <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
+                           <button type="button" class="add-btn" onclick="toggleAllApiMappings(true)">全部启用</button>
+                           <button type="button" class="add-btn delete-btn" onclick="toggleAllApiMappings(false)">全部禁用</button>
+                      </div>
+                  </div>
                   <div class="table-wrapper">
                       <table id="api-mappings-table">
                           <thead>
@@ -123,7 +130,6 @@
                           </tbody>
                       </table>
                   </div>
-                  <button type="button" class="add-btn" onclick="addApiMapping()">+ 添加新映射</button>
               </div>
           </div>
 
