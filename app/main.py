@@ -964,7 +964,7 @@ async def create_api_mapping(request: Request, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="前缀和目标URL不能为空")
     if prefix in mappings:
         raise HTTPException(status_code=400, detail="此前缀已存在")
-    mappings[prefix] = target_url
+    mappings[prefix] = {"target": target_url, "enabled": True}
     save_api_mappings()
     client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"API映射已创建: {prefix} -> {target_url}", extra={'ip': client_ip, 'request_type': 'admin_create_mapping'})
@@ -977,6 +977,7 @@ async def update_api_mapping(request: Request, payload: dict = Body(...)):
     old_prefix = payload.get("old_prefix")
     new_prefix = payload.get("new_prefix")
     target_url = payload.get("target_url")
+    enabled = payload.get("enabled")
 
     if not old_prefix or not new_prefix or not target_url:
         raise HTTPException(status_code=400, detail="请求参数不完整")
@@ -991,13 +992,33 @@ async def update_api_mapping(request: Request, payload: dict = Body(...)):
     # 先删除旧的
     del mappings[old_prefix]
     # 添加新的
-    mappings[new_prefix] = target_url
+    mappings[new_prefix] = {
+        "target": target_url,
+        "enabled": enabled
+    }
     
     save_api_mappings()
     client_ip = get_client_ip(request)
     log_msg = format_log_message('INFO', f"API映射已更新: {old_prefix} -> {new_prefix}", extra={'ip': client_ip, 'request_type': 'admin_update_mapping'})
     logger.info(log_msg)
     return JSONResponse(content={"message": "API映射已成功更新"})
+
+@app.put("/admin/api_mappings/toggle", dependencies=[Depends(verify_jwt_token)])
+async def toggle_api_mapping_status(request: Request, payload: dict = Body(...)):
+    mappings = get_api_mappings()
+    prefix = payload.get("prefix")
+    if not prefix or prefix not in mappings:
+        raise HTTPException(status_code=404, detail=f"未找到前缀: {prefix}")
+    
+    mappings[prefix]["enabled"] = not mappings[prefix].get("enabled", False)
+    save_api_mappings()
+    
+    client_ip = get_client_ip(request)
+    status = "启用" if mappings[prefix]["enabled"] else "禁用"
+    log_msg = format_log_message('INFO', f"API映射状态已切换: {prefix} is now {status}", extra={'ip': client_ip, 'request_type': 'admin_toggle_mapping'})
+    logger.info(log_msg)
+    
+    return JSONResponse(content={"message": f"API映射 {prefix} 已成功切换为 {status}"})
 
 @app.delete("/admin/api_mappings/{prefix:path}", dependencies=[Depends(verify_jwt_token)])
 async def delete_api_mapping(request: Request, prefix: str):

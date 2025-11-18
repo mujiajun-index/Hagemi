@@ -212,13 +212,21 @@ function loadApiMappings() {
         const tbody = document.querySelector('#api-mappings-table tbody');
         tbody.innerHTML = '';
         Object.keys(data).forEach((prefix, index) => {
+            const mapping = data[prefix];
+            const statusText = mapping.enabled ? '启用' : '禁用';
+            const statusClass = mapping.enabled ? 'status-active' : 'status-inactive';
             const row = `
                 <tr>
                     <td>${index + 1}</td>
                     <td>${prefix}</td>
-                    <td>${data[prefix]}</td>
+                    <td>${mapping.target}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                     <td>
-                        <button type="button" class="action-btn edit-btn" onclick="editApiMapping('${prefix}', '${data[prefix]}')">✏️</button>
+                        <label class="switch">
+                            <input type="checkbox" ${mapping.enabled ? 'checked' : ''} onchange="toggleApiMappingStatus('${prefix}')">
+                            <span class="slider"></span>
+                        </label>
+                        <button type="button" class="action-btn edit-btn" onclick="editApiMapping('${prefix}', '${mapping.target}', ${mapping.enabled})">✏️</button>
                         <button type="button" class="action-btn delete-btn" onclick="deleteApiMapping('${prefix}')">🗑️</button>
                     </td>
                 </tr>
@@ -228,7 +236,7 @@ function loadApiMappings() {
     });
 }
 
-function showMappingPrompt(title, prefix = '', target = '') {
+function showMappingPrompt(title, prefix = '', target = '', enabled = true) {
     return new Promise(resolve => {
         resolvePromise = resolve;
         modalTitle.textContent = title;
@@ -247,7 +255,7 @@ function showMappingPrompt(title, prefix = '', target = '') {
                 alert('请求前缀和目标地址不能为空。');
                 return; // Keep modal open
             }
-            if (resolvePromise) resolve({ prefix: prefixVal, target_url: targetVal });
+            if (resolvePromise) resolve({ prefix: prefixVal, target_url: targetVal, enabled: enabled });
             hideModal();
         };
 
@@ -277,8 +285,8 @@ async function addApiMapping() {
     .finally(hideLoader);
 }
 
-async function editApiMapping(oldPrefix, oldUrl) {
-    const result = await showMappingPrompt("编辑映射", oldPrefix, oldUrl);
+async function editApiMapping(oldPrefix, oldUrl, enabled) {
+    const result = await showMappingPrompt("编辑映射", oldPrefix, oldUrl, enabled);
     if (!result) return;
 
     showLoader();
@@ -291,8 +299,24 @@ async function editApiMapping(oldPrefix, oldUrl) {
         body: JSON.stringify({
             old_prefix: oldPrefix,
             new_prefix: result.prefix,
-            target_url: result.target_url
+            target_url: result.target_url,
+            enabled: result.enabled
         })
+    })
+    .then(handleApiResponse)
+    .then(loadApiMappings)
+    .finally(hideLoader);
+}
+
+async function toggleApiMappingStatus(prefix) {
+    showLoader();
+    fetch('/admin/api_mappings/toggle', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ prefix: prefix })
     })
     .then(handleApiResponse)
     .then(loadApiMappings)

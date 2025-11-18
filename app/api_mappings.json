@@ -1,17 +1,62 @@
 {
-    "/discord": "https://discord.com/api",
-    "/telegram": "https://api.telegram.org",
-    "/openai": "https://api.openai.com",
-    "/claude": "https://api.anthropic.com",
-    "/meta": "https://www.meta.ai/api",
-    "/groq": "https://api.groq.com/openai",
-    "/xai": "https://api.x.ai",
-    "/cohere": "https://api.cohere.ai",
-    "/huggingface": "https://api-inference.huggingface.co",
-    "/together": "https://api.together.xyz",
-    "/novita": "https://api.novita.ai",
-    "/portkey": "https://api.portkey.ai",
-    "/fireworks": "https://api.fireworks.ai",
-    "/openrouter": "https://openrouter.ai/api",
-    "/gemini": "https://generativelanguage.googleapis.com"
+    "/discord": {
+        "target": "https://discord.com/api",
+        "enabled": true
+    },
+    "/telegram": {
+        "target": "https://api.telegram.org",
+        "enabled": true
+    },
+    "/openai": {
+        "target": "https://api.openai.com",
+        "enabled": true
+    },
+    "/claude": {
+        "target": "https://api.anthropic.com",
+        "enabled": true
+    },
+    "/meta": {
+        "target": "https://www.meta.ai/api",
+        "enabled": true
+    },
+    "/groq": {
+        "target": "https://api.groq.com/openai",
+        "enabled": true
+    },
+    "/xai": {
+        "target": "https://api.x.ai",
+        "enabled": true
+    },
+    "/cohere": {
+        "target": "https://api.cohere.ai",
+        "enabled": true
+    },
+    "/huggingface": {
+        "target": "https://api-inference.huggingface.co",
+        "enabled": true
+    },
+    "/together": {
+        "target": "https://api.together.xyz",
+        "enabled": true
+    },
+    "/novita": {
+        "target": "https://api.novita.ai",
+        "enabled": true
+    },
+    "/portkey": {
+        "target": "https://api.portkey.ai",
+        "enabled": true
+    },
+    "/fireworks": {
+        "target": "https://api.fireworks.ai",
+        "enabled": true
+    },
+    "/openrouter": {
+        "target": "https://openrouter.ai/api",
+        "enabled": true
+    },
+    "/gemini": {
+        "target": "https://generativelanguage.googleapis.com",
+        "enabled": true
+    }
 }
